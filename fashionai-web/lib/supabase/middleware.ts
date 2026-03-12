@@ -53,5 +53,35 @@ export async function updateSession(request: NextRequest) {
     return NextResponse.redirect(redirectUrl);
   }
 
+  // Onboarding check — logged in users who haven't completed onboarding
+  if (user && pathname !== '/onboarding') {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('onboarded')
+      .eq('id', user.id)
+      .single();
+
+    if (profile && !profile.onboarded) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = '/onboarding';
+      return NextResponse.redirect(redirectUrl);
+    }
+  }
+
+  // Onboarding page → redirect to dashboard if already onboarded
+  if (user && pathname === '/onboarding') {
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('onboarded')
+      .eq('id', user.id)
+      .single();
+
+    if (profile?.onboarded) {
+      const redirectUrl = request.nextUrl.clone();
+      redirectUrl.pathname = '/dashboard';
+      return NextResponse.redirect(redirectUrl);
+    }
+  }
+
   return supabaseResponse;
 }
