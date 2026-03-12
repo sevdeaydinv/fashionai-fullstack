@@ -13,17 +13,17 @@ import { Input } from '@/components/ui/Input';
 const step1Schema = z.object({
   full_name: z.string().min(2, 'En az 2 karakter olmalı'),
   gender: z.enum(['male', 'female', 'non_binary', 'prefer_not_to_say'], {
-    required_error: 'Lütfen bir seçenek seçin',
+    message: 'Lütfen bir seçenek seçin',
   }),
   birth_date: z.string().min(1, 'Doğum tarihi gerekli'),
 });
 
 const step2Schema = z.object({
-  height_cm: z.coerce.number().min(100).max(250).optional(),
-  weight_kg: z.coerce.number().min(30).max(300).optional(),
-  waist_cm: z.coerce.number().min(40).max(200).optional(),
-  hip_cm: z.coerce.number().min(40).max(200).optional(),
-  shoe_size: z.coerce.number().min(30).max(55).optional(),
+  height_cm: z.number().min(100).max(250).optional(),
+  weight_kg: z.number().min(30).max(300).optional(),
+  waist_cm:  z.number().min(40).max(200).optional(),
+  hip_cm:    z.number().min(40).max(200).optional(),
+  shoe_size: z.number().min(30).max(55).optional(),
 });
 
 type Step1Data = z.infer<typeof step1Schema>;
@@ -112,7 +112,7 @@ export default function OnboardingPage() {
       if (profileError) throw profileError;
 
       // Upsert body measurements (only if any value was entered)
-      const hasMeasurements = Object.values(step2Data ?? {}).some((v) => v != null && v !== '');
+      const hasMeasurements = Object.values(step2Data ?? {}).some((v) => v != null);
       if (hasMeasurements) {
         const { error: measError } = await supabase
           .from('body_measurements')
@@ -252,35 +252,35 @@ export default function OnboardingPage() {
               type="number"
               placeholder="168"
               error={form2.formState.errors.height_cm?.message}
-              {...form2.register('height_cm')}
+              {...form2.register('height_cm', { valueAsNumber: true })}
             />
             <Input
               label="Kilo (kg)"
               type="number"
               placeholder="62"
               error={form2.formState.errors.weight_kg?.message}
-              {...form2.register('weight_kg')}
+              {...form2.register('weight_kg', { valueAsNumber: true })}
             />
             <Input
               label="Bel (cm)"
               type="number"
               placeholder="70"
               error={form2.formState.errors.waist_cm?.message}
-              {...form2.register('waist_cm')}
+              {...form2.register('waist_cm', { valueAsNumber: true })}
             />
             <Input
               label="Kalça (cm)"
               type="number"
               placeholder="95"
               error={form2.formState.errors.hip_cm?.message}
-              {...form2.register('hip_cm')}
+              {...form2.register('hip_cm', { valueAsNumber: true })}
             />
             <Input
               label="Ayak Numarası (EU)"
               type="number"
               placeholder="38"
               error={form2.formState.errors.shoe_size?.message}
-              {...form2.register('shoe_size')}
+              {...form2.register('shoe_size', { valueAsNumber: true })}
             />
           </div>
 
