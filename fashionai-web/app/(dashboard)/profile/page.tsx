@@ -1,4 +1,1 @@
-// Profile page — implementation coming soon
-export default function ProfilePage() {
-  return null;
-}
+export { default } from '@/app/dashboard/profile/page';
