@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import type { ClothingItem } from '@/types/wardrobe.types';
 
 const CATEGORY_LABELS: Record<string, string> = {
@@ -35,6 +36,7 @@ export function ClothingCard({ item, onEdit, onDelete, onToggleFavorite }: Props
   return (
     <div className="group relative rounded-2xl border border-ink-100 bg-white overflow-hidden hover:shadow-md hover:shadow-ink-900/5 transition-all duration-150">
       {/* Image */}
+      <Link href={`/dashboard/wardrobe/${item.id}`} className="block">
       <div className="relative aspect-square bg-ink-50 overflow-hidden">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -62,6 +64,7 @@ export function ClothingCard({ item, onEdit, onDelete, onToggleFavorite }: Props
           {CATEGORY_LABELS[item.category] ?? item.category}
         </span>
       </div>
+      </Link>
 
       {/* Info */}
       <div className="p-3.5">
