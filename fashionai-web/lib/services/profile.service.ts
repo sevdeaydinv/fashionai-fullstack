@@ -17,7 +17,7 @@ export const ProfileService = {
 
   async updateProfile(
     userId: string,
-    updates: Partial<Pick<Profile, 'full_name' | 'gender' | 'birth_date' | 'style_prefs' | 'username'>>
+    updates: Partial<Pick<Profile, 'full_name' | 'gender' | 'birth_date' | 'style_prefs' | 'username' | 'avatar_url'>>
   ): Promise<{ error: string | null }> {
     const { error } = await supabase
       .from('profiles')

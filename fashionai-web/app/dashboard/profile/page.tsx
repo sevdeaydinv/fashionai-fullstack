@@ -4,8 +4,10 @@ import { useState, useEffect } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
+import { useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { ProfileService } from '@/lib/services/profile.service';
+import { StorageService } from '@/lib/supabase/storage';
 import { Button } from '@/components/ui/Button';
 import { Input } from '@/components/ui/Input';
 import type { Profile, BodyMeasurements } from '@/types/profile.types';
@@ -63,7 +65,9 @@ export default function ProfilePage() {
   const [editProfile, setEditProfile]   = useState(false);
   const [editMeasure, setEditMeasure]   = useState(false);
   const [saving, setSaving]         = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Profile form
   const pForm = useForm<ProfileForm>({ resolver: zodResolver(profileSchema) });
@@ -140,6 +144,38 @@ export default function ProfilePage() {
     setSaving(false);
   };
 
+  // ── Upload avatar photo
+  const onPhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !userId) return;
+
+    const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+    if (!allowed.includes(file.type)) {
+      flash('Sadece JPG, PNG veya WebP yükleyebilirsin.');
+      return;
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      flash('Dosya boyutu 5 MB\'dan küçük olmalı.');
+      return;
+    }
+
+    setUploadingPhoto(true);
+    const { url, error } = await StorageService.upload('avatars', userId, file, 'avatar.jpg');
+
+    if (error || !url) {
+      flash('Fotoğraf yüklenemedi, tekrar dene.');
+      setUploadingPhoto(false);
+      return;
+    }
+
+    const { error: updateErr } = await ProfileService.updateProfile(userId, { avatar_url: url });
+    if (!updateErr) {
+      setProfile((prev) => prev ? { ...prev, avatar_url: `${url}?t=${Date.now()}` } : prev);
+      flash('Profil fotoğrafı güncellendi.');
+    }
+    setUploadingPhoto(false);
+  };
+
   const flash = (msg: string) => {
     setSuccessMsg(msg);
     setTimeout(() => setSuccessMsg(null), 3000);
@@ -168,6 +204,53 @@ export default function ProfilePage() {
           {successMsg}
         </div>
       )}
+
+      {/* ── Profil Fotoğrafı ── */}
+      <section className="rounded-2xl border border-ink-100 bg-white p-6 mb-5">
+        <h2 className="text-base font-semibold text-ink-900 mb-5">Profil Fotoğrafı</h2>
+        <div className="flex items-center gap-5">
+          {/* Avatar preview */}
+          <div className="relative h-20 w-20 shrink-0">
+            {profile?.avatar_url ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img
+                src={profile.avatar_url}
+                alt="Profil fotoğrafı"
+                className="h-20 w-20 rounded-full object-cover"
+              />
+            ) : (
+              <div className="h-20 w-20 rounded-full bg-brand-100 flex items-center justify-center text-2xl font-semibold text-brand-600">
+                {profile?.full_name?.charAt(0).toUpperCase() ?? '?'}
+              </div>
+            )}
+            {uploadingPhoto && (
+              <div className="absolute inset-0 rounded-full bg-black/40 flex items-center justify-center">
+                <div className="h-5 w-5 animate-spin rounded-full border-2 border-white border-t-transparent" />
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              className="sr-only"
+              onChange={onPhotoChange}
+            />
+            <Button
+              type="button"
+              variant="ghost"
+              size="sm"
+              loading={uploadingPhoto}
+              onClick={() => fileInputRef.current?.click()}
+            >
+              Fotoğraf Yükle
+            </Button>
+            <p className="text-xs text-ink-400">JPG, PNG veya WebP · Maks. 5 MB</p>
+          </div>
+        </div>
+      </section>
 
       {/* ── Kişisel Bilgiler ── */}
       <section className="rounded-2xl border border-ink-100 bg-white p-6 mb-5">
