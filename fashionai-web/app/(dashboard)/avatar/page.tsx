@@ -1,4 +1,1 @@
-// Avatar page — implementation coming soon
-export default function AvatarPage() {
-  return null;
-}
+export { default } from '@/app/dashboard/avatar/page';
