@@ -8,7 +8,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   pants: 'Pantolon', jeans: 'Kot', skirt: 'Etek', shorts: 'Şort',
   jacket: 'Ceket', coat: 'Mont', dress: 'Elbise',
   shoes: 'Ayakkabı', sneakers: 'Sneaker', boots: 'Bot', heels: 'Topuklu',
-  bag: 'Çanta', backpack: 'Sırt Çantası', clutch: 'El Çantası',
+  bag: 'Günlük Çanta', sport_bag: 'Spor Çanta', backpack: 'Sırt Çantası', clutch: 'Davet Çantası',
   accessory: 'Aksesuar',
 };
 
@@ -21,8 +21,8 @@ const CATEGORY_COLORS: Record<string, string> = {
   dress: 'bg-purple-50 text-purple-700',
   shoes: 'bg-amber-50 text-amber-700', sneakers: 'bg-lime-50 text-lime-700',
   boots: 'bg-brown-50 text-brown-700', heels: 'bg-fuchsia-50 text-fuchsia-700',
-  bag: 'bg-teal-50 text-teal-700', backpack: 'bg-cyan-50 text-cyan-700',
-  clutch: 'bg-violet-50 text-violet-700', accessory: 'bg-emerald-50 text-emerald-700',
+  bag: 'bg-teal-50 text-teal-700', sport_bag: 'bg-green-50 text-green-700',
+  backpack: 'bg-cyan-50 text-cyan-700', clutch: 'bg-violet-50 text-violet-700', accessory: 'bg-emerald-50 text-emerald-700',
 };
 
 interface Props {

@@ -8,7 +8,7 @@ export type ClothingCategory =
   | 'pants' | 'jeans' | 'skirt' | 'shorts'
   | 'jacket' | 'coat' | 'dress'
   | 'shoes' | 'sneakers' | 'boots' | 'heels'
-  | 'bag' | 'backpack' | 'clutch'
+  | 'bag' | 'sport_bag' | 'backpack' | 'clutch'
   | 'accessory';
 
 export type EventType =

@@ -14,7 +14,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   pants: 'Pantolon', jeans: 'Kot', skirt: 'Etek', shorts: 'Şort',
   jacket: 'Ceket', coat: 'Mont', dress: 'Elbise',
   shoes: 'Ayakkabı', sneakers: 'Sneaker', boots: 'Bot', heels: 'Topuklu',
-  bag: 'Çanta', backpack: 'Sırt Çantası', clutch: 'El Çantası',
+  bag: 'Günlük Çanta', sport_bag: 'Spor Çanta', backpack: 'Sırt Çantası', clutch: 'Davet Çantası',
   accessory: 'Aksesuar',
 };
 

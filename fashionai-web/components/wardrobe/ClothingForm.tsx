@@ -17,6 +17,7 @@ const schema = z.object({
   brand: z.string().optional(),
   season: z.array(z.string()).min(1, 'En az bir sezon seçin'),
   style: z.array(z.string()).min(1, 'En az bir stil seçin'),
+  fabric: z.string().optional(),
   notes: z.string().optional(),
 });
 
@@ -32,8 +33,9 @@ const CATEGORIES: { value: ClothingCategory; label: string }[] = [
   { value: 'dress', label: 'Elbise' },
   { value: 'shoes', label: 'Ayakkabı' }, { value: 'sneakers', label: 'Sneaker' },
   { value: 'boots', label: 'Bot' }, { value: 'heels', label: 'Topuklu' },
-  { value: 'bag', label: 'Çanta' }, { value: 'backpack', label: 'Sırt Çantası' },
-  { value: 'clutch', label: 'El Çantası' }, { value: 'accessory', label: 'Aksesuar' },
+  { value: 'bag', label: 'Günlük Çanta' }, { value: 'sport_bag', label: 'Spor Çanta' },
+  { value: 'backpack', label: 'Sırt Çantası' }, { value: 'clutch', label: 'Davet Çantası' },
+  { value: 'accessory', label: 'Aksesuar' },
 ];
 
 const SEASONS: { value: Season; label: string }[] = [
@@ -46,6 +48,21 @@ const STYLES: { value: Style; label: string }[] = [
   { value: 'casual', label: 'Günlük' }, { value: 'formal', label: 'Resmi' },
   { value: 'sport', label: 'Spor' }, { value: 'streetwear', label: 'Sokak' },
   { value: 'elegant', label: 'Şık' }, { value: 'bohemian', label: 'Bohem' },
+];
+
+const FABRICS: { value: string; label: string }[] = [
+  { value: 'cotton',    label: 'Pamuk' },
+  { value: 'denim',     label: 'Denim' },
+  { value: 'linen',     label: 'Keten' },
+  { value: 'silk',      label: 'İpek' },
+  { value: 'satin',     label: 'Saten' },
+  { value: 'chiffon',   label: 'Şifon' },
+  { value: 'velvet',    label: 'Kadife' },
+  { value: 'wool',      label: 'Yün' },
+  { value: 'polyester', label: 'Polyester' },
+  { value: 'lycra',     label: 'Likra' },
+  { value: 'leather',   label: 'Deri' },
+  { value: 'lace',      label: 'Dantel' },
 ];
 
 const PRESET_COLORS = [
@@ -77,6 +94,7 @@ export function ClothingForm({ item, onSubmit, onCancel, isLoading }: Props) {
       brand: item?.brand ?? '',
       season: item?.season ?? [],
       style: item?.style ?? [],
+      fabric: item?.tags?.find(t => t.startsWith('fabric:'))?.replace('fabric:', '') ?? '',
       notes: item?.notes ?? '',
     },
   });
@@ -103,7 +121,7 @@ export function ClothingForm({ item, onSubmit, onCancel, isLoading }: Props) {
       season: values.season as Season[],
       style: values.style as Style[],
       notes: values.notes || null,
-      tags: [],
+      tags: values.fabric ? [`fabric:${values.fabric}`] : [],
       is_favorite: item?.is_favorite ?? false,
       last_worn_at: item?.last_worn_at ?? null,
       image_url: item?.image_url ?? '',
@@ -293,6 +311,34 @@ export function ClothingForm({ item, onSubmit, onCancel, isLoading }: Props) {
               )}
             />
             {errors.style && <p className="mt-1 text-xs text-red-500">{errors.style.message}</p>}
+          </div>
+
+          {/* Fabric */}
+          <div>
+            <label className="block text-xs font-medium text-ink-600 mb-1.5">Kumaş (opsiyonel)</label>
+            <Controller
+              name="fabric"
+              control={control}
+              render={({ field }) => (
+                <div className="flex flex-wrap gap-2">
+                  {FABRICS.map(f => {
+                    const selected = field.value === f.value;
+                    return (
+                      <button
+                        key={f.value}
+                        type="button"
+                        onClick={() => field.onChange(selected ? '' : f.value)}
+                        className={`rounded-full px-3 py-1 text-xs font-medium border transition-colors ${
+                          selected ? 'bg-ink-900 text-white border-ink-900' : 'bg-white text-ink-600 border-ink-200 hover:bg-ink-50'
+                        }`}
+                      >
+                        {f.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+            />
           </div>
 
           {/* Notes */}

@@ -45,7 +45,7 @@ export interface OutfitGenerationRequest {
 export interface OutfitGenerationResult {
   top: ClothingItem;
   bottom: ClothingItem | null;
-  shoes: ClothingItem;
+  shoes: ClothingItem | null;
   bag: ClothingItem | null;
   accessories: ClothingItem[];
   score: number;
