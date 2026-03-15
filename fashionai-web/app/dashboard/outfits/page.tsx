@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useOutfits } from '@/lib/hooks/useOutfits';
+import { useWeather } from '@/lib/hooks/useWeather';
 import { GeneratedOutfitCard, SavedOutfitCard } from '@/components/outfit/OutfitCard';
 import type { OutfitGenerationResult, Outfit } from '@/types/outfit.types';
 import type { EventType, Season, WeatherCondition } from '@/types/common.types';
@@ -44,6 +45,7 @@ export default function OutfitsPage() {
   const userId = userData?.id ?? null;
 
   const { outfits, isLoading, generateOutfit, saveOutfit, deleteOutfit, toggleFavorite } = useOutfits(userId);
+  const { weather } = useWeather();
 
   // ── Form state
   const [event, setEvent]       = useState<EventType>('daily_casual');
@@ -51,6 +53,15 @@ export default function OutfitsPage() {
   const [weatherCond, setWeatherCond]   = useState<WeatherCondition | undefined>();
   const [weatherTemp, setWeatherTemp]   = useState<number | undefined>();
   const [showWeather, setShowWeather]   = useState(false);
+
+  // Hava durumu gelince otomatik doldur
+  useEffect(() => {
+    if (weather && !weatherCond) {
+      setWeatherCond(weather.condition);
+      setWeatherTemp(weather.temp);
+      setShowWeather(true);
+    }
+  }, [weather]);
 
   // ── Generated results
   const [results, setResults] = useState<OutfitGenerationResult[]>([]);
@@ -158,7 +169,12 @@ export default function OutfitsPage() {
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d={showWeather ? 'M19.5 8.25l-7.5 7.5-7.5-7.5' : 'M8.25 4.5l7.5 7.5-7.5 7.5'} />
               </svg>
-              Hava durumu ekle (opsiyonel)
+              Hava durumu
+              {weather && (
+                <span className="ml-1 text-sky-500 font-semibold">
+                  ({weather.temp}°C · {weather.city})
+                </span>
+              )}
             </button>
 
             {showWeather && (

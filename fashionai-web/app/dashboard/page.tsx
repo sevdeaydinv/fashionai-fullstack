@@ -1,4 +1,5 @@
 import { createClient } from '@/lib/supabase/server';
+import { WeatherWidget } from '@/components/weather/WeatherWidget';
 
 const QUICK_ACTIONS = [
   {
@@ -51,6 +52,11 @@ export default async function DashboardPage() {
         <p className="text-ink-500">
           Let&apos;s find you the perfect outfit for today.
         </p>
+      </div>
+
+      {/* Weather widget */}
+      <div className="mb-8">
+        <WeatherWidget />
       </div>
 
       {/* Setup progress (shown when wardrobe is empty) */}
