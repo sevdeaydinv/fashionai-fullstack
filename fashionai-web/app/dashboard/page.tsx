@@ -1,5 +1,6 @@
 import { createClient } from '@/lib/supabase/server';
 import { WeatherWidget } from '@/components/weather/WeatherWidget';
+import { UpcomingEventsWidget } from '@/components/events/UpcomingEventsWidget';
 
 const QUICK_ACTIONS = [
   {
@@ -54,9 +55,10 @@ export default async function DashboardPage() {
         </p>
       </div>
 
-      {/* Weather widget */}
-      <div className="mb-8">
+      {/* Weather + Upcoming Events */}
+      <div className="grid sm:grid-cols-2 gap-4 mb-8">
         <WeatherWidget />
+        <UpcomingEventsWidget />
       </div>
 
       {/* Setup progress (shown when wardrobe is empty) */}
