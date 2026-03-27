@@ -28,131 +28,92 @@ export default function LandingPage() {
 /* ─────────────────────────────────────────────────────────── */
 function HeroSection() {
   return (
-    <section className="gradient-hero bg-grid glow-rose relative min-h-screen flex items-center pt-16">
-      {/* Decorative blobs */}
-      <div className="pointer-events-none absolute inset-0 overflow-hidden">
-        <div className="absolute -top-40 -right-40 h-[600px] w-[600px] rounded-full bg-brand-600/10 blur-3xl" />
-        <div className="absolute -bottom-20 -left-40 h-[500px] w-[500px] rounded-full bg-brand-600/8 blur-3xl" />
-      </div>
+    <section className="min-h-screen flex items-center pt-20 pb-10 bg-white overflow-hidden">
+      <div className="w-full">
 
-      <div className="relative mx-auto max-w-7xl px-6 py-24 lg:py-32 grid lg:grid-cols-2 gap-16 items-center">
-        {/* Left — Copy */}
-        <div className="flex flex-col gap-8">
-          {/* Badge */}
-          <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/5 px-4 py-1.5 text-sm text-white/70">
-            <span className="h-1.5 w-1.5 rounded-full bg-brand-400 animate-pulse" />
-            AI-Powered Personal Styling
-          </div>
+        {/* Hero card — full background image */}
+        <div className="relative w-full">
 
-          {/* Headline */}
-          <h1 className="text-5xl lg:text-6xl xl:text-7xl font-semibold leading-[1.05] tracking-tight text-white">
-            Dress with{' '}
-            <span className="text-brand-400">Intelligence</span>
-          </h1>
+          {/* Fotoğraf — tam genişlik, orijinal oran korunur, kırpma yok */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/hero-models.jpg"
+            alt="Fashion models"
+            className="w-full h-auto block"
+          />
 
-          {/* Subheadline */}
-          <p className="max-w-lg text-lg text-white/60 leading-relaxed">
-            Upload your wardrobe once. Get daily AI outfit combinations tailored
-            to your body measurements, personal style, weather, and occasion.
-          </p>
+          {/* Overlay */}
+          <div className="absolute inset-0"
+            style={{ background: 'linear-gradient(100deg, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.55) 40%, rgba(0,0,0,0.1) 100%)' }} />
 
-          {/* CTAs */}
-          <div className="flex flex-wrap gap-4">
-            <Link
-              href="/register"
-              className="inline-flex h-12 items-center justify-center gap-2 rounded-xl bg-brand-600 px-7 text-base font-medium text-white transition-all hover:bg-brand-500 hover:shadow-lg hover:shadow-brand-600/30 active:scale-[0.98]"
-            >
-              Start Styling Free
-              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-              </svg>
-            </Link>
-            <Link
-              href="/#how-it-works"
-              className="inline-flex h-12 items-center justify-center rounded-xl border border-white/15 px-7 text-base font-medium text-white/80 transition-all hover:bg-white/8 hover:text-white"
-            >
-              See How It Works
-            </Link>
-          </div>
+          {/* İçerik — sol, dikey ortada */}
+          <div className="absolute inset-0 flex items-center">
+          <div className="flex flex-col gap-6 px-14 max-w-lg">
 
-          {/* Social proof */}
-          <div className="flex items-center gap-4 text-sm text-white/40">
-            <div className="flex -space-x-2">
-              {['F', 'M', 'A', 'J', 'K'].map((initial, i) => (
-                <span
-                  key={i}
-                  className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-ink-900 text-xs font-semibold text-white"
-                  style={{ background: `hsl(${i * 60}, 60%, 45%)` }}
-                >
-                  {initial}
-                </span>
-              ))}
+            {/* Headline */}
+            <div className="space-y-1">
+              <h1 className="font-serif italic font-light leading-[1.15] tracking-wide"
+                style={{ fontSize: 'clamp(2rem, 3.5vw, 3.2rem)', color: 'rgba(255,255,255,0.65)' }}>
+                Dijital
+              </h1>
+              <h1 className="font-serif italic font-light leading-[1.15] tracking-wide"
+                style={{ fontSize: 'clamp(2rem, 3.5vw, 3.2rem)', color: 'rgba(255,255,255,0.65)' }}>
+                Gardırobunuz
+              </h1>
             </div>
-            <span>Join 10,000+ fashion-forward users</span>
-          </div>
-        </div>
 
-        {/* Right — Visual cards */}
-        <div className="relative h-[480px] hidden lg:flex items-center justify-center">
-          {/* Main card */}
-          <div className="glass rounded-3xl p-6 w-72 shadow-2xl">
-            <div className="flex items-center gap-3 mb-5">
-              <div className="h-10 w-10 rounded-2xl bg-brand-600/20 flex items-center justify-center">
-                <svg className="h-5 w-5 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M5 3l14 9-14 9V3z" />
-                </svg>
-              </div>
-              <div>
-                <p className="text-sm font-medium text-white">Today&apos;s Outfit</p>
-                <p className="text-xs text-white/50">Casual Friday · 22°C Sunny</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-3 gap-2 mb-5">
-              {[
-                { label: 'Top', color: '#3B82F6', icon: '👕' },
-                { label: 'Bottom', color: '#1D4ED8', icon: '👖' },
-                { label: 'Shoes', color: '#1E293B', icon: '👟' },
-              ].map((item) => (
-                <div
-                  key={item.label}
-                  className="aspect-square rounded-xl flex flex-col items-center justify-center gap-1 border border-white/10"
-                  style={{ background: `${item.color}22` }}
-                >
-                  <span className="text-2xl">{item.icon}</span>
-                  <span className="text-xs text-white/60">{item.label}</span>
-                </div>
-              ))}
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-xs text-white/50">AI Match Score</span>
-              <div className="flex items-center gap-1.5">
-                <div className="h-1.5 w-24 rounded-full bg-white/10 overflow-hidden">
-                  <div className="h-full w-[92%] rounded-full bg-brand-500" />
-                </div>
-                <span className="text-xs font-medium text-brand-400">92%</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Floating mini cards */}
-          <div className="glass absolute -top-4 -right-4 rounded-2xl p-4 w-44 shadow-xl">
-            <p className="text-xs text-white/50 mb-2">Beauty Tip</p>
-            <p className="text-sm font-medium text-white leading-snug">
-              Soft dewy makeup for your oval face shape ✨
+            {/* Subheadline */}
+            <p className="text-sm text-white/70 leading-relaxed max-w-xs">
+              Gardırobunuzu bir kez yükleyin. AI her gün stilinize ve hava durumuna özel kombinler üretsin.
             </p>
+
+            {/* CTAs */}
+            <div className="flex flex-wrap gap-3">
+              <Link
+                href="/register"
+                className="inline-flex h-11 items-center justify-center gap-2 rounded-full px-7 text-sm font-bold text-white transition-all hover:opacity-90 active:scale-[0.98]"
+                style={{ background: '#C41E3A' }}
+              >
+                Ücretsiz Başla
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                </svg>
+              </Link>
+              <Link
+                href="/#how-it-works"
+                className="inline-flex h-11 items-center justify-center rounded-full px-7 text-sm font-bold bg-white text-ink-900 transition-all hover:bg-white/90"
+              >
+                Nasıl Çalışır?
+              </Link>
+            </div>
+
+            {/* Social proof */}
+            <div className="flex items-center gap-3">
+              <div className="flex -space-x-2">
+                {['S','M','A','J','K'].map((i, idx) => (
+                  <span key={idx}
+                    className="flex h-7 w-7 items-center justify-center rounded-full border-2 border-white text-[0.6rem] font-bold text-white"
+                    style={{ background: idx % 2 === 0 ? '#C41E3A' : '#7b3f35' }}>
+                    {i}
+                  </span>
+                ))}
+              </div>
+              <span className="text-xs text-white/60"><strong className="text-white">10.000+</strong> kullanıcı</span>
+            </div>
+          </div>
           </div>
 
-          <div className="glass absolute -bottom-4 left-0 rounded-2xl p-4 w-48 shadow-xl">
-            <div className="flex items-center gap-2 mb-1.5">
-              <svg className="h-4 w-4 text-brand-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
-              </svg>
-              <p className="text-xs text-white/50">Istanbul · Now</p>
-            </div>
-            <p className="text-lg font-semibold text-white">22°C</p>
-            <p className="text-xs text-white/50">Partly cloudy — light jacket recommended</p>
-          </div>
         </div>
+
+        {/* Alt bilgi şeridi */}
+        <div className="mt-6 px-6 flex flex-wrap items-center justify-center gap-x-10 gap-y-2 text-xs text-ink-400">
+          <span>✦ Ücretsiz başla, kredi kartı gerekmez</span>
+          <span className="h-px w-12 bg-ink-200 hidden sm:block" />
+          <span>✦ Hava durumuna göre otomatik öneri</span>
+          <span className="h-px w-12 bg-ink-200 hidden sm:block" />
+          <span>✦ Hem kadın hem erkek modaları</span>
+        </div>
+
       </div>
     </section>
   );
