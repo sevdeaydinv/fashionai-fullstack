@@ -1,2 +1,5 @@
-// Auth Stack layout — Stack navigator for auth flow
-// Screens: login, register, onboarding
+import { Stack } from 'expo-router';
+
+export default function AuthLayout() {
+  return <Stack screenOptions={{ headerShown: false }} />;
+}

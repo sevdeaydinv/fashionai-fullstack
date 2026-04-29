@@ -1,45 +1,33 @@
-import Link from 'next/link';
-
 export const dynamic = 'force-dynamic';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen grid lg:grid-cols-2">
-      {/* Left — Form */}
-      <div className="flex flex-col justify-center px-8 py-12 sm:px-16">
-        {/* Logo */}
-        <div className="mb-12">
-          <Link href="/" className="inline-flex items-center gap-2">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-brand-600">
-              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
-                <path d="M12 2L8 8H4L6 14H4L8 20H16L20 14H18L20 8H16L12 2Z" fill="white" fillOpacity="0.9" />
-              </svg>
-            </span>
-            <span className="text-lg font-semibold text-ink-900">FashionAI</span>
-          </Link>
-        </div>
-        {children}
+    <div
+      className="min-h-screen flex flex-col items-center justify-center relative overflow-hidden"
+      style={{ background: '#0a0a0a' }}
+    >
+      {/* Kırmızı radyal arka plan glow — referans görseldeki gibi */}
+      <div className="pointer-events-none absolute inset-0" aria-hidden="true">
+        <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-[900px] h-[500px] rounded-full opacity-40"
+          style={{ background: 'radial-gradient(ellipse at center, rgba(196,30,58,0.55) 0%, rgba(120,10,30,0.3) 35%, transparent 70%)', filter: 'blur(40px)' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[400px] rounded-full opacity-20"
+          style={{ background: 'radial-gradient(ellipse at center, rgba(196,30,58,0.4) 0%, transparent 70%)', filter: 'blur(60px)' }} />
       </div>
 
-      {/* Right — Visual panel */}
-      <div className="hidden lg:flex gradient-hero bg-grid relative overflow-hidden items-end p-16">
-        {/* Blob */}
-        <div className="pointer-events-none absolute -top-20 -right-20 h-[400px] w-[400px] rounded-full bg-brand-600/15 blur-3xl" />
-        {/* Quote card */}
-        <div className="glass rounded-3xl p-8 max-w-sm z-10">
-          <p className="text-white/90 text-lg font-medium leading-relaxed mb-6">
-            &ldquo;FashionAI turned my messy wardrobe into a curated capsule collection. I get dressed in 2 minutes now.&rdquo;
-          </p>
-          <div className="flex items-center gap-3">
-            <span className="flex h-9 w-9 items-center justify-center rounded-full bg-brand-600 text-white text-sm font-semibold">
-              S
-            </span>
-            <div>
-              <p className="text-sm font-medium text-white">Sofia M.</p>
-              <p className="text-xs text-white/50">Fashion Blogger</p>
-            </div>
-          </div>
-        </div>
+      {/* Form */}
+      <div className="relative z-10 w-full flex flex-col items-center justify-center px-4 py-10">
+        {children}
+
+        {/* Alt Fashion AI yazısı */}
+        <p className="mt-10 text-xl font-light tracking-widest"
+          style={{
+            fontFamily: 'var(--font-cormorant), Georgia, serif',
+            color: 'rgba(255,255,255,0.75)',
+            textShadow: '0 0 20px rgba(196,30,58,0.9), 0 0 40px rgba(196,30,58,0.5)',
+            letterSpacing: '0.2em',
+          }}>
+          Fashion <span style={{ color: '#ff3355' }}>AI</span>
+        </p>
       </div>
     </div>
   );

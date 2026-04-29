@@ -1,14 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useBeauty } from '@/lib/hooks/useBeauty';
 import { MakeupCard } from '@/components/beauty/MakeupCard';
 import { HairstyleCard, GroomingCard } from '@/components/beauty/HairstyleCard';
 import { BeautyService } from '@/lib/services/beauty.service';
-import type { BeautyProfile } from '@/types/beauty.types';
-import type { RecommendationPayload } from '@/types/beauty.types';
+import type { BeautyProfile, RecommendationPayload, FaceAnalysisResult } from '@/types/beauty.types';
 
 const FACE_SHAPES = [
   { value: 'oval',    label: 'Oval',     icon: '🥚' },
@@ -48,6 +47,8 @@ const HAIR_LENGTHS = [
   { value: 'long',   label: 'Uzun' },
 ];
 
+type Tab = 'profile' | 'face_analysis';
+
 export default function BeautyPage() {
   const supabase = createClient();
 
@@ -71,6 +72,9 @@ export default function BeautyPage() {
   const userId = userData?.id ?? null;
   const { profile, isLoading, updateProfile } = useBeauty(userId);
 
+  // Tab state
+  const [activeTab, setActiveTab] = useState<Tab>('profile');
+
   // Form state
   const [form, setForm] = useState<Partial<Omit<BeautyProfile, 'id' | 'user_id' | 'updated_at'>>>({});
   const [saved, setSaved] = useState(false);
@@ -79,6 +83,14 @@ export default function BeautyPage() {
   const [aiLoading, setAiLoading] = useState(false);
   const [aiResult, setAiResult] = useState<RecommendationPayload | null>(null);
   const [aiError, setAiError] = useState<string | null>(null);
+
+  // Face analysis state
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [faceImage, setFaceImage] = useState<File | null>(null);
+  const [facePreview, setFacePreview] = useState<string | null>(null);
+  const [faceLoading, setFaceLoading] = useState(false);
+  const [faceResult, setFaceResult] = useState<FaceAnalysisResult | null>(null);
+  const [faceError, setFaceError] = useState<string | null>(null);
 
   const currentProfile = { ...profile, ...form };
 
@@ -134,6 +146,41 @@ export default function BeautyPage() {
     }
   };
 
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFaceImage(file);
+    setFaceResult(null);
+    setFaceError(null);
+    const reader = new FileReader();
+    reader.onload = () => setFacePreview(reader.result as string);
+    reader.readAsDataURL(file);
+  };
+
+  const handleFaceAnalysis = async () => {
+    if (!faceImage) return;
+    setFaceLoading(true);
+    setFaceError(null);
+    setFaceResult(null);
+
+    try {
+      const fd = new FormData();
+      fd.append('image', faceImage);
+      const res = await fetch('/api/face-analysis', { method: 'POST', body: fd });
+
+      if (res.ok) {
+        const { result } = await res.json();
+        setFaceResult(result);
+      } else {
+        setFaceError('Yüz analizi yapılamadı. Lütfen net bir yüz fotoğrafı yükleyin.');
+      }
+    } catch {
+      setFaceError('Bağlantı hatası. Tekrar deneyin.');
+    } finally {
+      setFaceLoading(false);
+    }
+  };
+
   const isGenderMale = profileData?.gender === 'male';
 
   if (isLoading) {
@@ -147,31 +194,196 @@ export default function BeautyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-ink-50">
+    <div>
       {/* Header */}
-      <div className="bg-white border-b border-ink-100 px-4 py-4 sm:px-6">
-        <h1 className="text-lg font-semibold text-ink-900">Güzellik Asistanı</h1>
-        <p className="text-xs text-ink-400 mt-0.5">Profiline göre kişiselleştirilmiş güzellik önerileri</p>
+      <div className="mb-8">
+        <p className="section-label mb-1">Personalization</p>
+        <h1 className="editorial-heading text-4xl text-ink-900">Beauty Assistant</h1>
+        <p className="text-sm text-ink-400 mt-1">AI-powered beauty recommendations for your profile</p>
       </div>
 
-      <div className="p-4 sm:p-6 max-w-2xl mx-auto space-y-6">
+      <div className="divider-editorial mb-8" />
 
-        {/* ── Profil Formu */}
-        <div className="rounded-2xl bg-white border border-ink-100 p-5 space-y-5">
-          <h2 className="text-sm font-semibold text-ink-900">Güzellik Profilin</h2>
+      {/* Tabs */}
+      <div className="flex gap-0 mb-8 border-b border-ink-200 max-w-2xl">
+        <button
+          onClick={() => setActiveTab('profile')}
+          className={`px-5 py-3 text-xs font-semibold tracking-wider uppercase border-b-2 transition-colors -mb-px ${
+            activeTab === 'profile'
+              ? 'border-ink-900 text-ink-900'
+              : 'border-transparent text-ink-400 hover:text-ink-600'
+          }`}
+        >
+          Beauty Profile
+        </button>
+        <button
+          onClick={() => setActiveTab('face_analysis')}
+          className={`px-5 py-3 text-xs font-semibold tracking-wider uppercase border-b-2 transition-colors -mb-px ${
+            activeTab === 'face_analysis'
+              ? 'border-ink-900 text-ink-900'
+              : 'border-transparent text-ink-400 hover:text-ink-600'
+          }`}
+        >
+          Yüz Analizi
+        </button>
+      </div>
 
-          {/* Yüz Şekli */}
+      <div className="max-w-2xl space-y-6">
+
+        {/* ── Face Analysis Tab */}
+        {activeTab === 'face_analysis' && (
+          <div className="space-y-6">
+            {/* Upload Area */}
+            <div className="bg-white border border-ink-100 p-6 space-y-4">
+              <p className="section-label">Fotoğraf Yükle</p>
+              <p className="text-xs text-ink-400">Net, ön cepheden çekilmiş bir yüz fotoğrafı yükleyin. Yapay zeka yüz şeklinizi analiz edecek.</p>
+
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={handleImageSelect}
+              />
+
+              {facePreview ? (
+                <div className="space-y-3">
+                  <div className="relative w-48 h-48 mx-auto">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={facePreview}
+                      alt="Yüz fotoğrafı"
+                      className="w-full h-full object-cover border border-ink-200"
+                    />
+                  </div>
+                  <button
+                    onClick={() => { setFaceImage(null); setFacePreview(null); setFaceResult(null); setFaceError(null); }}
+                    className="btn-outline w-full text-xs"
+                  >
+                    Fotoğrafı Değiştir
+                  </button>
+                </div>
+              ) : (
+                <button
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-full border-2 border-dashed border-ink-200 py-12 flex flex-col items-center gap-3 hover:border-ink-400 transition-colors"
+                >
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.5} className="h-8 w-8 text-ink-300">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.338-2.32 5.75 5.75 0 011.566 1.88A4.5 4.5 0 0117.25 19.5H6.75z" />
+                  </svg>
+                  <span className="text-xs text-ink-400 font-medium">Fotoğraf seçmek için tıklayın</span>
+                  <span className="text-[0.65rem] text-ink-300">JPG, PNG veya WebP</span>
+                </button>
+              )}
+            </div>
+
+            {faceImage && (
+              <button
+                onClick={handleFaceAnalysis}
+                disabled={faceLoading}
+                className="btn-brand w-full disabled:opacity-60"
+              >
+                {faceLoading ? (
+                  <span className="flex items-center justify-center gap-2">
+                    <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                    </svg>
+                    Yüz analiz ediliyor...
+                  </span>
+                ) : '✨ Yüzümü Analiz Et'}
+              </button>
+            )}
+
+            {faceError && (
+              <div className="border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-700">
+                {faceError}
+              </div>
+            )}
+
+            {/* Face Analysis Results */}
+            {faceResult && (
+              <div className="space-y-4">
+                {/* Face Shape */}
+                <div className="bg-white border border-ink-100 p-6">
+                  <p className="section-label mb-4">Yüz Şekli Analizi</p>
+                  <div className="flex items-center gap-4 mb-3">
+                    <div className="flex-1">
+                      <h3 className="editorial-heading text-2xl text-ink-900">{faceResult.face_shape_label}</h3>
+                      <p className="text-sm text-ink-500 mt-1">{faceResult.face_shape_description}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-[0.65rem] text-ink-400 uppercase tracking-wider mb-1">Güven</p>
+                      <p className="text-lg font-semibold text-ink-900">{Math.round(faceResult.confidence * 100)}%</p>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Hairstyle Suggestions */}
+                <div className="bg-white border border-ink-100 p-6">
+                  <p className="section-label mb-4">Saç Modeli Önerileri</p>
+                  <div className="space-y-3">
+                    {faceResult.hairstyle_suggestions.map((style, i) => (
+                      <div key={i} className="border border-ink-100 p-4">
+                        <h4 className="text-sm font-semibold text-ink-900 mb-1">{style.name}</h4>
+                        <p className="text-xs text-ink-500 mb-2">{style.description}</p>
+                        <p className="text-[0.65rem] text-ink-400 uppercase tracking-wider">{style.suitable_for}</p>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Tips */}
+                {faceResult.styling_tips.length > 0 && (
+                  <div className="bg-white border border-ink-100 p-6">
+                    <p className="section-label mb-4">Stil İpuçları</p>
+                    <ul className="space-y-2">
+                      {faceResult.styling_tips.map((tip, i) => (
+                        <li key={i} className="flex gap-2 text-sm text-ink-600">
+                          <span className="text-brand-500 shrink-0">✓</span>
+                          {tip}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {faceResult.avoid_tips.length > 0 && (
+                  <div className="bg-white border border-ink-100 p-6">
+                    <p className="section-label mb-4">Kaçınılması Gerekenler</p>
+                    <ul className="space-y-2">
+                      {faceResult.avoid_tips.map((tip, i) => (
+                        <li key={i} className="flex gap-2 text-sm text-ink-600">
+                          <span className="text-amber-500 shrink-0">✗</span>
+                          {tip}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* ── Profile Tab */}
+        {activeTab === 'profile' && <>
+
+        {/* ── Profile Form */}
+        <div className="bg-white border border-ink-100 p-6 space-y-6">
+          <p className="section-label">Beauty Profile</p>
+
+          {/* Face Shape */}
           <div>
-            <label className="block text-xs font-medium text-ink-600 mb-2">Yüz Şekli</label>
+            <label className="block text-xs text-ink-500 mb-3">Face Shape</label>
             <div className="grid grid-cols-3 gap-2">
               {FACE_SHAPES.map(s => (
                 <button
                   key={s.value}
                   onClick={() => setForm(f => ({ ...f, face_shape: s.value as BeautyProfile['face_shape'] }))}
-                  className={`flex flex-col items-center gap-1 rounded-xl border py-2.5 text-xs font-medium transition-colors ${
+                  className={`flex flex-col items-center gap-1.5 border py-3 text-[0.65rem] font-semibold tracking-wider uppercase transition-colors ${
                     (currentProfile.face_shape ?? '') === s.value
                       ? 'border-ink-900 bg-ink-900 text-white'
-                      : 'border-ink-200 text-ink-600 hover:bg-ink-50'
+                      : 'border-ink-200 text-ink-500 hover:border-ink-400'
                   }`}
                 >
                   <span className="text-lg">{s.icon}</span>
@@ -181,22 +393,22 @@ export default function BeautyPage() {
             </div>
           </div>
 
-          {/* Cilt Tonu */}
+          {/* Skin Tone */}
           <div>
-            <label className="block text-xs font-medium text-ink-600 mb-2">Cilt Tonu</label>
+            <label className="block text-xs text-ink-500 mb-3">Skin Tone</label>
             <div className="flex gap-2 flex-wrap">
               {SKIN_TONES.map(t => (
                 <button
                   key={t.value}
                   onClick={() => setForm(f => ({ ...f, skin_tone: t.value }))}
-                  className={`flex items-center gap-2 rounded-full border px-3 py-1.5 text-xs font-medium transition-colors ${
+                  className={`flex items-center gap-2 border px-3 py-1.5 text-[0.65rem] font-semibold tracking-wider uppercase transition-colors ${
                     (currentProfile.skin_tone ?? '') === t.value
                       ? 'border-ink-900 bg-ink-900 text-white'
-                      : 'border-ink-200 text-ink-700 hover:bg-ink-50'
+                      : 'border-ink-200 text-ink-600 hover:border-ink-400'
                   }`}
                 >
                   <span
-                    className="h-3.5 w-3.5 rounded-full border border-ink-200 shrink-0"
+                    className="h-3 w-3 shrink-0"
                     style={{ backgroundColor: t.color }}
                   />
                   {t.label}
@@ -205,18 +417,18 @@ export default function BeautyPage() {
             </div>
           </div>
 
-          {/* Cilt Tipi */}
+          {/* Skin Type */}
           <div>
-            <label className="block text-xs font-medium text-ink-600 mb-2">Cilt Tipi</label>
+            <label className="block text-xs text-ink-500 mb-3">Skin Type</label>
             <div className="flex gap-2">
               {SKIN_TYPES.map(t => (
                 <button
                   key={t.value}
                   onClick={() => setForm(f => ({ ...f, skin_type: t.value as BeautyProfile['skin_type'] }))}
-                  className={`flex-1 rounded-xl border py-2 text-xs font-medium transition-colors ${
+                  className={`flex-1 border py-2 text-[0.65rem] font-semibold tracking-wider uppercase transition-colors ${
                     (currentProfile.skin_type ?? '') === t.value
                       ? 'border-ink-900 bg-ink-900 text-white'
-                      : 'border-ink-200 text-ink-600 hover:bg-ink-50'
+                      : 'border-ink-200 text-ink-500 hover:border-ink-400'
                   }`}
                 >
                   {t.label}
@@ -225,18 +437,18 @@ export default function BeautyPage() {
             </div>
           </div>
 
-          {/* Saç Tipi */}
+          {/* Hair Type */}
           <div>
-            <label className="block text-xs font-medium text-ink-600 mb-2">Saç Tipi</label>
+            <label className="block text-xs text-ink-500 mb-3">Hair Type</label>
             <div className="flex gap-2">
               {HAIR_TYPES.map(t => (
                 <button
                   key={t.value}
                   onClick={() => setForm(f => ({ ...f, hair_type: t.value as BeautyProfile['hair_type'] }))}
-                  className={`flex-1 rounded-xl border py-2 text-xs font-medium transition-colors ${
+                  className={`flex-1 border py-2 text-[0.65rem] font-semibold tracking-wider uppercase transition-colors ${
                     (currentProfile.hair_type ?? '') === t.value
                       ? 'border-ink-900 bg-ink-900 text-white'
-                      : 'border-ink-200 text-ink-600 hover:bg-ink-50'
+                      : 'border-ink-200 text-ink-500 hover:border-ink-400'
                   }`}
                 >
                   {t.label}
@@ -245,18 +457,18 @@ export default function BeautyPage() {
             </div>
           </div>
 
-          {/* Saç Uzunluğu */}
+          {/* Hair Length */}
           <div>
-            <label className="block text-xs font-medium text-ink-600 mb-2">Saç Uzunluğu</label>
+            <label className="block text-xs text-ink-500 mb-3">Hair Length</label>
             <div className="flex gap-2">
               {HAIR_LENGTHS.map(l => (
                 <button
                   key={l.value}
                   onClick={() => setForm(f => ({ ...f, hair_length: l.value as BeautyProfile['hair_length'] }))}
-                  className={`flex-1 rounded-xl border py-2 text-xs font-medium transition-colors ${
+                  className={`flex-1 border py-2 text-[0.65rem] font-semibold tracking-wider uppercase transition-colors ${
                     (currentProfile.hair_length ?? '') === l.value
                       ? 'border-ink-900 bg-ink-900 text-white'
-                      : 'border-ink-200 text-ink-600 hover:bg-ink-50'
+                      : 'border-ink-200 text-ink-500 hover:border-ink-400'
                   }`}
                 >
                   {l.label}
@@ -265,42 +477,42 @@ export default function BeautyPage() {
             </div>
           </div>
 
-          {/* Kaydet butonu */}
+          {/* Save button */}
           <button
             onClick={handleSave}
             disabled={updateProfile.isPending || Object.keys(form).length === 0}
-            className="w-full rounded-xl bg-ink-900 py-2.5 text-sm font-semibold text-white hover:bg-ink-800 disabled:opacity-50 transition-colors"
+            className="btn-primary w-full disabled:opacity-50"
           >
-            {saved ? '✓ Kaydedildi' : updateProfile.isPending ? 'Kaydediliyor...' : 'Profili Kaydet'}
+            {saved ? '✓ Saved' : updateProfile.isPending ? 'Saving...' : 'Save Profile'}
           </button>
         </div>
 
-        {/* ── AI Öneri Butonu */}
+        {/* ── AI Recommendations */}
         <button
           onClick={handleGetRecommendations}
           disabled={aiLoading}
-          className="w-full rounded-xl bg-gradient-to-r from-rose-500 to-violet-500 py-3 text-sm font-semibold text-white hover:opacity-90 disabled:opacity-60 transition-opacity"
+          className="btn-brand w-full disabled:opacity-60"
         >
           {aiLoading ? (
             <span className="flex items-center justify-center gap-2">
-              <svg className="h-4 w-4 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
               </svg>
-              AI önerileri hazırlanıyor...
+              Generating AI recommendations...
             </span>
-          ) : '✨ AI ile Güzellik Önerileri Al'}
+          ) : '✨ Get AI Beauty Recommendations'}
         </button>
 
         {aiError && (
-          <div className="rounded-2xl bg-amber-50 border border-amber-100 px-5 py-4 text-sm text-amber-700">
+          <div className="border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-700">
             {aiError}
           </div>
         )}
 
-        {/* ── AI Sonuçları */}
+        {/* ── AI Results */}
         {aiResult && (
           <div className="space-y-4">
-            <p className="text-xs font-medium text-ink-500">Kişisel Önerileriniz</p>
+            <p className="section-label">Your Personal Recommendations</p>
 
             {aiResult.makeup && !isGenderMale && (
               <MakeupCard makeup={aiResult.makeup} />
@@ -315,6 +527,8 @@ export default function BeautyPage() {
             )}
           </div>
         )}
+
+        </>}
       </div>
     </div>
   );

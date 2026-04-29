@@ -5,10 +5,10 @@ import { colorHarmonyScore, areColorsCompatible } from './color.utils';
 
 // ── Category role helpers
 const TOP_CATS: ClothingCategory[]    = ['shirt', 'tshirt', 'blouse', 'sweater', 'jacket', 'coat', 'dress'];
-const BOTTOM_CATS: ClothingCategory[] = ['pants', 'jeans', 'skirt', 'shorts'];
+const BOTTOM_CATS: ClothingCategory[] = ['pants', 'jeans', 'skirt', 'shorts', 'sweatpants'];
 const SHOES_CATS: ClothingCategory[]  = ['shoes', 'sneakers', 'boots', 'heels'];
 const BAG_CATS: ClothingCategory[]    = ['bag', 'sport_bag', 'backpack', 'clutch'];
-const ACC_CATS: ClothingCategory[]    = ['accessory'];
+const ACC_CATS: ClothingCategory[]    = ['accessory', 'hat'];
 
 // ── Event → preferred styles
 const EVENT_STYLES: Record<EventType, Style[]> = {

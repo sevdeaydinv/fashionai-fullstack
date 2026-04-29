@@ -33,8 +33,10 @@ const CATEGORIES: { value: ClothingCategory; label: string }[] = [
   { value: 'dress', label: 'Elbise' },
   { value: 'shoes', label: 'Ayakkabı' }, { value: 'sneakers', label: 'Sneaker' },
   { value: 'boots', label: 'Bot' }, { value: 'heels', label: 'Topuklu' },
+  { value: 'sweatpants', label: 'Eşofman Altı' },
   { value: 'bag', label: 'Günlük Çanta' }, { value: 'sport_bag', label: 'Spor Çanta' },
   { value: 'backpack', label: 'Sırt Çantası' }, { value: 'clutch', label: 'Davet Çantası' },
+  { value: 'hat', label: 'Şapka' },
   { value: 'accessory', label: 'Aksesuar' },
 ];
 

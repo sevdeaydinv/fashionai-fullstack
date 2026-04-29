@@ -18,7 +18,7 @@ export default async function DashboardLayout({
       <Navbar />
       <div className="flex pt-16">
         <DashboardNav />
-        <main className="flex-1 min-w-0 p-8">
+        <main className="flex-1 min-w-0 px-8 py-10 max-w-6xl">
           {children}
         </main>
       </div>

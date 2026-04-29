@@ -34,45 +34,44 @@ interface Props {
 
 export function ClothingCard({ item, onEdit, onDelete, onToggleFavorite }: Props) {
   return (
-    <div className="group relative rounded-2xl border border-ink-100 bg-white overflow-hidden hover:shadow-md hover:shadow-ink-900/5 transition-all duration-150">
+    <div className="group relative bg-white border border-ink-100 overflow-hidden card">
       {/* Image */}
       <Link href={`/dashboard/wardrobe/${item.id}`} className="block">
-      <div className="relative aspect-square bg-ink-50 overflow-hidden">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={item.image_url}
-          alt={item.name}
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-        />
+        <div className="relative aspect-square bg-ink-50 overflow-hidden">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={item.image_url}
+            alt={item.name}
+            className="w-full h-full object-cover group-hover:scale-103 transition-transform duration-500"
+          />
 
-        {/* Favorite button */}
-        <button
-          onClick={(e) => { e.stopPropagation(); onToggleFavorite(item); }}
-          className="absolute top-2.5 right-2.5 flex h-8 w-8 items-center justify-center rounded-full bg-white/90 backdrop-blur shadow-sm hover:bg-white transition-colors"
-          aria-label={item.is_favorite ? 'Favoriden çıkar' : 'Favoriye ekle'}
-        >
-          <svg
-            className={`h-4 w-4 transition-colors ${item.is_favorite ? 'fill-red-500 text-red-500' : 'fill-none text-ink-400 hover:text-red-400'}`}
-            viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+          {/* Favorite button */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onToggleFavorite(item); }}
+            className="absolute top-2 right-2 flex h-7 w-7 items-center justify-center bg-white/90 backdrop-blur hover:bg-white transition-colors"
+            aria-label={item.is_favorite ? 'Favoriden çıkar' : 'Favoriye ekle'}
           >
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
-          </svg>
-        </button>
+            <svg
+              className={`h-3.5 w-3.5 transition-colors ${item.is_favorite ? 'fill-brand-500 text-brand-500' : 'fill-none text-ink-300 hover:text-brand-400'}`}
+              viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
+            </svg>
+          </button>
 
-        {/* Category badge */}
-        <span className={`absolute bottom-2.5 left-2.5 rounded-lg px-2 py-0.5 text-xs font-medium ${CATEGORY_COLORS[item.category] ?? 'bg-ink-100 text-ink-600'}`}>
-          {CATEGORY_LABELS[item.category] ?? item.category}
-        </span>
-      </div>
+          {/* Category badge */}
+          <span className="absolute bottom-2 left-2 bg-white/90 backdrop-blur px-2 py-0.5 text-[0.6rem] font-semibold tracking-wider uppercase text-ink-600">
+            {CATEGORY_LABELS[item.category] ?? item.category}
+          </span>
+        </div>
       </Link>
 
       {/* Info */}
-      <div className="p-3.5">
+      <div className="p-3">
         <p className="text-sm font-medium text-ink-900 truncate">{item.name}</p>
-        <div className="flex items-center gap-1.5 mt-1">
-          {/* Color dot */}
+        <div className="flex items-center gap-1.5 mt-0.5">
           <span
-            className="h-3 w-3 rounded-full border border-ink-200 shrink-0"
+            className="h-2.5 w-2.5 rounded-full border border-ink-200 shrink-0"
             style={{ backgroundColor: item.color }}
           />
           <p className="text-xs text-ink-400 truncate">{item.color_name ?? item.color}</p>
@@ -83,15 +82,15 @@ export function ClothingCard({ item, onEdit, onDelete, onToggleFavorite }: Props
         <div className="flex gap-2 mt-3">
           <button
             onClick={() => onEdit(item)}
-            className="flex-1 rounded-lg border border-ink-200 py-1.5 text-xs font-medium text-ink-600 hover:bg-ink-50 transition-colors"
+            className="flex-1 border border-ink-200 py-1.5 text-[0.65rem] font-semibold tracking-wider uppercase text-ink-600 hover:bg-ink-50 transition-colors"
           >
-            Düzenle
+            Edit
           </button>
           <button
             onClick={() => onDelete(item)}
-            className="flex-1 rounded-lg border border-red-100 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"
+            className="flex-1 border border-ink-200 py-1.5 text-[0.65rem] font-semibold tracking-wider uppercase text-brand-600 hover:bg-brand-50 transition-colors"
           >
-            Sil
+            Delete
           </button>
         </div>
       </div>
