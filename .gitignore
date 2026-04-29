@@ -1,3 +1,7 @@
 .DS_Store
 supabase/.temp/
 TODO.md
+node_modules/
+fashionai-mobile/node_modules/
+fashionai-web/node_modules/
+fashionai-mobile/package-lock.json
