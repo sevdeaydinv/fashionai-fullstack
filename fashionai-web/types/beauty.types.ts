@@ -51,3 +51,19 @@ export interface GroomingRecommendation {
   skincare_routine: string[];
   tips: string[];
 }
+
+export interface FaceAnalysisHairstyle {
+  name: string;
+  description: string;
+  suitable_for: string;
+}
+
+export interface FaceAnalysisResult {
+  face_shape: string;
+  face_shape_label: string;
+  face_shape_description: string;
+  confidence: number;
+  hairstyle_suggestions: FaceAnalysisHairstyle[];
+  styling_tips: string[];
+  avoid_tips: string[];
+}

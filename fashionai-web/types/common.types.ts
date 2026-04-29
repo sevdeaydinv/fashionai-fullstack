@@ -9,7 +9,9 @@ export type ClothingCategory =
   | 'jacket' | 'coat' | 'dress'
   | 'shoes' | 'sneakers' | 'boots' | 'heels'
   | 'bag' | 'sport_bag' | 'backpack' | 'clutch'
-  | 'accessory';
+  | 'hat'
+  | 'accessory'
+  | 'sweatpants';
 
 export type EventType =
   | 'daily_casual' | 'picnic' | 'sport'
