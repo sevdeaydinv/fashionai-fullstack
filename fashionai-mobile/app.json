@@ -26,6 +26,9 @@
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "extra": {
+      "OPENWEATHER_API_KEY": "2e2d4dfa7d87ef26bbf236ee8c1d5201"
+    },
     "scheme": "fashionai",
     "plugins": [
       "expo-router",
@@ -35,7 +38,8 @@
         {
           "photosPermission": "Kıyafet fotoğrafı seçmek için galeri erişimi gerekli."
         }
-      ]
+      ],
+      "expo-video"
     ]
   }
 }

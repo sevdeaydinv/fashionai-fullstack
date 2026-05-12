@@ -7,7 +7,9 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import * as FileSystem from 'expo-file-system/legacy';
 import { decode } from 'base64-arraybuffer';
+import { Ionicons } from '@expo/vector-icons';
 import { supabase } from '@/lib/supabase/client';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 const { width } = Dimensions.get('window');
 const ITEM_SIZE = (width - 48) / 2;
@@ -18,6 +20,7 @@ const CATEGORY_LABELS: Record<string, string> = {
   pants: 'Pantolon', jeans: 'Kot', skirt: 'Etek', shorts: 'Şort',
   jacket: 'Ceket', coat: 'Mont', dress: 'Elbise', sweatpants: 'Eşofman Altı',
   shoes: 'Ayakkabı', sneakers: 'Sneaker', boots: 'Bot', heels: 'Topuklu',
+  sandals: 'Sandalet', slippers: 'Terlik',
   bag: 'Günlük Çanta', sport_bag: 'Spor Çanta', backpack: 'Sırt Çantası', clutch: 'Davet Çantası',
   hat: 'Şapka', accessory: 'Aksesuar',
 };
@@ -31,6 +34,7 @@ const CATEGORIES = [
   { value: 'dress', label: 'Elbise' }, { value: 'sweatpants', label: 'Eşofman Altı' },
   { value: 'shoes', label: 'Ayakkabı' }, { value: 'sneakers', label: 'Sneaker' },
   { value: 'boots', label: 'Bot' }, { value: 'heels', label: 'Topuklu' },
+  { value: 'sandals', label: 'Sandalet' }, { value: 'slippers', label: 'Terlik' },
   { value: 'bag', label: 'Günlük Çanta' }, { value: 'sport_bag', label: 'Spor Çanta' },
   { value: 'backpack', label: 'Sırt Çantası' }, { value: 'clutch', label: 'Davet Çantası' },
   { value: 'hat', label: 'Şapka' }, { value: 'accessory', label: 'Aksesuar' },
@@ -97,6 +101,7 @@ const defaultForm = (): FormState => ({
 });
 
 export default function WardrobeScreen() {
+  const { t } = useLanguage();
   const [clothes, setClothes] = useState<ClothingItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -321,21 +326,23 @@ export default function WardrobeScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View>
-          <Text style={styles.label}>MY COLLECTION</Text>
-          <Text style={styles.heading}>Wardrobe</Text>
-          <Text style={styles.count}>{clothes.length} items</Text>
+          <Text style={styles.label}>{t.wardrobe.sectionLabel.toUpperCase()}</Text>
+          <Text style={styles.heading}>{t.wardrobe.title}</Text>
+          <Text style={styles.count}>{clothes.length} {t.wardrobe.itemsCount}</Text>
         </View>
         <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
-          <Text style={styles.addBtnText}>+ Add Item</Text>
+          <Ionicons name="add" size={18} color="#fff" />
+          <Text style={styles.addBtnText}>{t.wardrobe.addItem}</Text>
         </TouchableOpacity>
       </View>
 
       {/* Search */}
       <View style={styles.searchWrap}>
+        <Ionicons name="search-outline" size={16} color="#9E9690" style={styles.searchIcon} />
         <TextInput
           style={styles.search}
-          placeholder="Search by name, brand or color..."
-          placeholderTextColor="#bbb"
+          placeholder={t.wardrobe.searchPlaceholder}
+          placeholderTextColor="#b0aaa5"
           value={search}
           onChangeText={setSearch}
         />
@@ -348,14 +355,14 @@ export default function WardrobeScreen() {
             onPress={() => setFavOnly(v => !v)}
             style={[styles.chip, favOnly && styles.chipFav]}
           >
-            <Text style={[styles.chipText, favOnly && styles.chipTextActive]}>♥ Favorites</Text>
+            <Text style={[styles.chipText, favOnly && styles.chipTextActive]}>♥ {t.wardrobe.favorites}</Text>
           </TouchableOpacity>
           <TouchableOpacity
             onPress={() => setActiveCategory(null)}
             style={[styles.chip, !activeCategory && styles.chipActive]}
           >
             <Text style={[styles.chipText, !activeCategory && styles.chipTextActive]}>
-              All ({clothes.length})
+              {t.wardrobe.all} ({clothes.length})
             </Text>
           </TouchableOpacity>
           {categories.map(cat => (
@@ -374,21 +381,27 @@ export default function WardrobeScreen() {
 
       {/* Grid */}
       {loading ? (
-        <ActivityIndicator style={{ marginTop: 40 }} color="#111" />
+        <ActivityIndicator style={{ marginTop: 60 }} color="#C41E3A" />
       ) : filtered.length === 0 ? (
-        <View style={styles.empty}>
-          <Text style={styles.emptyTitle}>
-            {clothes.length === 0 ? 'Your wardrobe is empty' : 'No items found'}
-          </Text>
-          <Text style={styles.emptySub}>
-            {clothes.length === 0 ? 'Start by adding your first clothing item.' : 'Try clearing some filters.'}
-          </Text>
-          {clothes.length === 0 && (
-            <TouchableOpacity style={styles.addBtn} onPress={openAdd}>
-              <Text style={styles.addBtnText}>Add First Item</Text>
+        clothes.length === 0 ? (
+          <View style={styles.empty}>
+            <View style={styles.emptyIconWrap}>
+              <Ionicons name="shirt-outline" size={42} color="#C41E3A" />
+            </View>
+            <Text style={styles.emptyTitle}>{t.wardrobe.emptyTitle}</Text>
+            <Text style={styles.emptySub}>{t.wardrobe.emptyNoFilter}</Text>
+            <TouchableOpacity style={styles.emptyBtn} onPress={openAdd}>
+              <Ionicons name="add-circle-outline" size={16} color="#fff" />
+              <Text style={styles.emptyBtnText}>{t.wardrobe.addFirstItem}</Text>
             </TouchableOpacity>
-          )}
-        </View>
+          </View>
+        ) : (
+          <View style={styles.empty}>
+            <Ionicons name="search-outline" size={38} color="#C8C2BC" />
+            <Text style={styles.emptyTitle}>{t.wardrobe.noItemsFound}</Text>
+            <Text style={styles.emptySub}>{t.wardrobe.emptyWithFilter}</Text>
+          </View>
+        )
       ) : (
         <FlatList
           data={filtered}
@@ -401,7 +414,7 @@ export default function WardrobeScreen() {
               <View style={styles.imageWrap}>
                 <Image source={{ uri: item.image_url }} style={styles.image} />
                 <TouchableOpacity style={styles.favBtn} onPress={() => toggleFavorite(item)}>
-                  <Text style={{ fontSize: 14 }}>{item.is_favorite ? '❤️' : '🤍'}</Text>
+                  <Ionicons name={item.is_favorite ? 'heart' : 'heart-outline'} size={15} color={item.is_favorite ? '#C41E3A' : '#9E9690'} />
                 </TouchableOpacity>
                 <View style={styles.catBadge}>
                   <Text style={styles.catBadgeText}>{CATEGORY_LABELS[item.category] ?? item.category}</Text>
@@ -418,10 +431,10 @@ export default function WardrobeScreen() {
                 </View>
                 <View style={styles.cardActions}>
                   <TouchableOpacity style={styles.actionBtn} onPress={() => openEdit(item)}>
-                    <Text style={styles.actionBtnText}>Edit</Text>
+                    <Text style={styles.actionBtnText}>{t.profile.edit}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity style={[styles.actionBtn, styles.actionBtnDelete]} onPress={() => setDeleteTarget(item)}>
-                    <Text style={[styles.actionBtnText, styles.actionBtnTextDelete]}>Delete</Text>
+                    <Text style={[styles.actionBtnText, styles.actionBtnTextDelete]}>{t.wardrobe.delete}</Text>
                   </TouchableOpacity>
                 </View>
               </View>
@@ -617,19 +630,19 @@ export default function WardrobeScreen() {
       <Modal transparent visible={!!deleteTarget} animationType="fade">
         <View style={styles.overlay}>
           <View style={styles.deleteModal}>
-            <Text style={styles.deleteLbl}>CONFIRM DELETE</Text>
+            <Text style={styles.deleteLbl}>{t.wardrobe.confirmDelete.toUpperCase()}</Text>
             <Text style={styles.deleteTitle}>{deleteTarget?.name}</Text>
-            <Text style={styles.deleteSub}>This item will be permanently removed from your wardrobe.</Text>
+            <Text style={styles.deleteSub}>{t.wardrobe.deleteItemConfirm}</Text>
             <View style={styles.deleteActions}>
               <TouchableOpacity style={styles.cancelBtn} onPress={() => setDeleteTarget(null)}>
-                <Text style={styles.cancelBtnText}>Cancel</Text>
+                <Text style={styles.cancelBtnText}>{t.wardrobe.cancel}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[styles.submitBtn, { backgroundColor: '#ef4444' }, deleteLoading && { opacity: 0.5 }]}
                 onPress={handleDelete}
                 disabled={deleteLoading}
               >
-                <Text style={styles.submitBtnText}>{deleteLoading ? 'Deleting...' : 'Delete'}</Text>
+                <Text style={styles.submitBtnText}>{deleteLoading ? t.wardrobe.deleting : t.wardrobe.delete}</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -640,84 +653,155 @@ export default function WardrobeScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', paddingHorizontal: 24, paddingTop: 16, paddingBottom: 12 },
-  label: { fontSize: 10, fontWeight: '700', letterSpacing: 2, color: '#bbb', marginBottom: 4 },
-  heading: { fontSize: 28, fontWeight: '700', color: '#111', letterSpacing: -0.5 },
-  count: { fontSize: 12, color: '#bbb', marginTop: 2 },
-  addBtn: { backgroundColor: '#111', paddingHorizontal: 16, paddingVertical: 10 },
+  container: { flex: 1, backgroundColor: '#F5F2EE' },
+  header: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingTop: 10, paddingBottom: 14,
+    backgroundColor: '#1C1917',
+  },
+  label: { fontSize: 9, fontWeight: '700', letterSpacing: 2.5, color: 'rgba(196,30,58,0.85)', marginBottom: 3 },
+  heading: { fontSize: 21, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.3 },
+  count: { fontSize: 11, color: 'rgba(255,255,255,0.45)', marginTop: 1 },
+  addBtn: { backgroundColor: '#C41E3A', paddingHorizontal: 14, paddingVertical: 10, borderRadius: 8, flexDirection: 'row', alignItems: 'center', gap: 5 },
   addBtnText: { color: '#fff', fontSize: 12, fontWeight: '700', letterSpacing: 0.5 },
 
-  searchWrap: { paddingHorizontal: 24, marginBottom: 10 },
-  search: { borderWidth: 1, borderColor: '#e5e5e5', paddingHorizontal: 14, paddingVertical: 10, fontSize: 14, color: '#111' },
+  searchWrap: { paddingHorizontal: 20, marginVertical: 14, flexDirection: 'row', alignItems: 'center', gap: 10 },
+  searchIcon: { position: 'absolute', left: 36, zIndex: 1 },
+  search: {
+    flex: 1, borderWidth: 1, borderColor: '#E2DDD7', borderRadius: 10,
+    paddingLeft: 36, paddingRight: 14, paddingVertical: 12, fontSize: 14,
+    color: '#141210', backgroundColor: '#fff',
+  },
 
-  chips: { paddingHorizontal: 24, gap: 8, alignItems: 'center' },
-  chip: { borderWidth: 1, borderColor: '#e5e5e5', paddingHorizontal: 12, paddingVertical: 5 },
-  chipActive: { backgroundColor: '#111', borderColor: '#111' },
-  chipFav: { backgroundColor: '#fdf2f8', borderColor: '#ec4899' },
-  chipText: { fontSize: 10, fontWeight: '700', letterSpacing: 1, color: '#999' },
+  chips: { paddingHorizontal: 20, gap: 8, alignItems: 'center' },
+  chip: { borderWidth: 1, borderColor: '#E2DDD7', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 20, backgroundColor: '#fff' },
+  chipActive: { backgroundColor: '#C41E3A', borderColor: '#C41E3A' },
+  chipFav: { backgroundColor: 'rgba(196,30,58,0.08)', borderColor: 'rgba(196,30,58,0.4)' },
+  chipText: { fontSize: 10, fontWeight: '700', letterSpacing: 1, color: '#706A64' },
   chipTextActive: { color: '#fff' },
 
-  grid: { paddingHorizontal: 24, paddingBottom: 24 },
+  grid: { paddingHorizontal: 20, paddingBottom: 24 },
   row: { gap: 12, marginBottom: 12 },
 
-  card: { width: ITEM_SIZE, borderWidth: 1, borderColor: '#f0f0f0', overflow: 'hidden' },
+  card: {
+    width: ITEM_SIZE, overflow: 'hidden', borderRadius: 12,
+    backgroundColor: '#fff', borderWidth: 1, borderColor: '#E2DDD7',
+    shadowColor: '#141210', shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06, shadowRadius: 8, elevation: 2,
+  },
   imageWrap: { position: 'relative' },
-  image: { width: ITEM_SIZE, height: ITEM_SIZE, backgroundColor: '#f5f5f5' },
-  favBtn: { position: 'absolute', top: 6, right: 6, backgroundColor: 'rgba(255,255,255,0.9)', padding: 4 },
-  catBadge: { position: 'absolute', bottom: 6, left: 6, backgroundColor: 'rgba(255,255,255,0.9)', paddingHorizontal: 6, paddingVertical: 2 },
-  catBadgeText: { fontSize: 9, fontWeight: '700', letterSpacing: 0.5, color: '#444' },
-  cardBody: { padding: 10 },
-  cardName: { fontSize: 13, fontWeight: '600', color: '#111', marginBottom: 4 },
-  colorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 8 },
-  colorDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 1, borderColor: '#e5e5e5' },
-  colorName: { fontSize: 11, color: '#999', flex: 1 },
+  image: { width: ITEM_SIZE, height: ITEM_SIZE, backgroundColor: '#F5F2EE' },
+  favBtn: { position: 'absolute', top: 8, right: 8, backgroundColor: 'rgba(255,255,255,0.92)', padding: 6, borderRadius: 20 },
+  catBadge: { position: 'absolute', bottom: 8, left: 8, backgroundColor: 'rgba(28,25,23,0.75)', paddingHorizontal: 7, paddingVertical: 3, borderRadius: 4 },
+  catBadgeText: { fontSize: 9, fontWeight: '700', letterSpacing: 0.5, color: '#fff' },
+  cardBody: { padding: 12 },
+  cardName: { fontSize: 13, fontWeight: '600', color: '#141210', marginBottom: 4 },
+  colorRow: { flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 10 },
+  colorDot: { width: 10, height: 10, borderRadius: 5, borderWidth: 1, borderColor: '#E2DDD7' },
+  colorName: { fontSize: 11, color: '#9E9690', flex: 1 },
   cardActions: { flexDirection: 'row', gap: 6 },
-  actionBtn: { flex: 1, borderWidth: 1, borderColor: '#e5e5e5', paddingVertical: 6, alignItems: 'center' },
-  actionBtnDelete: { borderColor: '#fecaca' },
-  actionBtnText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5, color: '#555' },
-  actionBtnTextDelete: { color: '#ef4444' },
+  actionBtn: { flex: 1, borderWidth: 1, borderColor: '#E2DDD7', paddingVertical: 7, alignItems: 'center', borderRadius: 6 },
+  actionBtnDelete: { borderColor: 'rgba(196,30,58,0.3)', backgroundColor: 'rgba(196,30,58,0.04)' },
+  actionBtnText: { fontSize: 10, fontWeight: '700', letterSpacing: 0.5, color: '#706A64' },
+  actionBtnTextDelete: { color: '#C41E3A' },
 
-  empty: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 40 },
-  emptyTitle: { fontSize: 18, fontWeight: '700', color: '#bbb', marginBottom: 8, textAlign: 'center' },
-  emptySub: { fontSize: 12, color: '#ccc', textAlign: 'center', marginBottom: 20 },
+  empty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 40,
+    paddingTop: 60,
+    paddingBottom: 40,
+  },
+  emptyIconWrap: {
+    width: 88,
+    height: 88,
+    borderRadius: 44,
+    backgroundColor: 'rgba(196,30,58,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(196,30,58,0.15)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 20,
+  },
+  emptyTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1A1108',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  emptySub: {
+    fontSize: 13,
+    color: '#A89F96',
+    textAlign: 'center',
+    lineHeight: 20,
+    marginBottom: 28,
+  },
+  emptyBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#C41E3A',
+    paddingHorizontal: 22,
+    paddingVertical: 13,
+    borderRadius: 14,
+    shadowColor: '#C41E3A',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.35,
+    shadowRadius: 10,
+    elevation: 5,
+  },
+  emptyBtnText: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#fff',
+    letterSpacing: 0.2,
+  },
 
   // Modal
-  modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 1, borderColor: '#f0f0f0' },
-  modalTitle: { fontSize: 16, fontWeight: '700', color: '#111' },
-  modalClose: { fontSize: 18, color: '#999' },
-  formScroll: { padding: 20, gap: 20 },
+  modalHeader: {
+    flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center',
+    paddingHorizontal: 20, paddingVertical: 18,
+    borderBottomWidth: 1, borderColor: '#E2DDD7', backgroundColor: '#fff',
+  },
+  modalTitle: { fontSize: 16, fontWeight: '700', color: '#141210' },
+  modalClose: { fontSize: 20, color: '#9E9690', paddingHorizontal: 4 },
+  formScroll: { padding: 20, gap: 20, backgroundColor: '#F5F2EE' },
 
-  imagePicker: { borderWidth: 2, borderColor: '#e5e5e5', borderStyle: 'dashed', height: 160, overflow: 'hidden' },
+  imagePicker: { borderWidth: 1.5, borderColor: '#E2DDD7', borderStyle: 'dashed', borderRadius: 12, height: 180, overflow: 'hidden', backgroundColor: '#fff' },
   imagePickerPreview: { width: '100%', height: '100%' },
   imagePickerEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 8 },
-  imagePickerIcon: { fontSize: 32 },
-  imagePickerText: { fontSize: 13, color: '#bbb' },
+  imagePickerIcon: { fontSize: 36 },
+  imagePickerText: { fontSize: 13, color: '#9E9690' },
 
   field: { gap: 8 },
-  fieldLabel: { fontSize: 12, fontWeight: '600', color: '#555' },
-  input: { borderWidth: 1, borderColor: '#e5e5e5', paddingHorizontal: 14, paddingVertical: 12, fontSize: 14, color: '#111' },
+  fieldLabel: { fontSize: 12, fontWeight: '700', color: '#706A64', letterSpacing: 0.5 },
+  input: {
+    borderWidth: 1, borderColor: '#E2DDD7', borderRadius: 8,
+    paddingHorizontal: 14, paddingVertical: 12, fontSize: 14,
+    color: '#141210', backgroundColor: '#fff',
+  },
 
-  colorPicker: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  colorSwatch: { width: 28, height: 28, borderRadius: 14, borderWidth: 2, borderColor: 'transparent' },
-  colorSwatchActive: { borderColor: '#111' },
+  colorPicker: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  colorSwatch: { width: 30, height: 30, borderRadius: 15, borderWidth: 2.5, borderColor: 'transparent' },
+  colorSwatchActive: { borderColor: '#C41E3A' },
 
   pills: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  pill: { borderWidth: 1, borderColor: '#e5e5e5', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20 },
-  pillActive: { backgroundColor: '#111', borderColor: '#111' },
-  pillText: { fontSize: 12, fontWeight: '600', color: '#666' },
+  pill: { borderWidth: 1, borderColor: '#E2DDD7', paddingHorizontal: 14, paddingVertical: 8, borderRadius: 20, backgroundColor: '#fff' },
+  pillActive: { backgroundColor: '#C41E3A', borderColor: '#C41E3A' },
+  pillText: { fontSize: 12, fontWeight: '600', color: '#706A64' },
   pillTextActive: { color: '#fff' },
 
-  formActions: { flexDirection: 'row', gap: 12, paddingTop: 8, paddingBottom: 40 },
-  cancelBtn: { flex: 1, borderWidth: 1, borderColor: '#e5e5e5', paddingVertical: 14, alignItems: 'center' },
-  cancelBtnText: { fontSize: 14, fontWeight: '600', color: '#111' },
-  submitBtn: { flex: 1, backgroundColor: '#111', paddingVertical: 14, alignItems: 'center' },
-  submitBtnText: { fontSize: 14, fontWeight: '600', color: '#fff' },
+  formActions: { flexDirection: 'row', gap: 12, paddingTop: 8, paddingBottom: 48 },
+  cancelBtn: { flex: 1, borderWidth: 1, borderColor: '#E2DDD7', paddingVertical: 15, alignItems: 'center', borderRadius: 8 },
+  cancelBtnText: { fontSize: 14, fontWeight: '600', color: '#706A64' },
+  submitBtn: { flex: 1, backgroundColor: '#C41E3A', paddingVertical: 15, alignItems: 'center', borderRadius: 8 },
+  submitBtnText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', alignItems: 'center', padding: 24 },
-  deleteModal: { backgroundColor: '#fff', padding: 32, width: '100%' },
-  deleteLbl: { fontSize: 10, fontWeight: '700', letterSpacing: 2, color: '#bbb', marginBottom: 8 },
-  deleteTitle: { fontSize: 20, fontWeight: '700', color: '#111', marginBottom: 6 },
-  deleteSub: { fontSize: 13, color: '#666', marginBottom: 24 },
+  overlay: { flex: 1, backgroundColor: 'rgba(14,10,8,0.6)', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  deleteModal: { backgroundColor: '#fff', padding: 32, width: '100%', borderRadius: 16 },
+  deleteLbl: { fontSize: 10, fontWeight: '700', letterSpacing: 2, color: '#9E9690', marginBottom: 8 },
+  deleteTitle: { fontSize: 20, fontWeight: '700', color: '#141210', marginBottom: 6 },
+  deleteSub: { fontSize: 13, color: '#706A64', marginBottom: 24 },
   deleteActions: { flexDirection: 'row', gap: 12 },
 });

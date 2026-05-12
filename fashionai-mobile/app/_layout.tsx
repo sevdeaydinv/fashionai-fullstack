@@ -3,6 +3,7 @@ import { Stack, router, useSegments } from 'expo-router';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase/client';
 import { StatusBar } from 'expo-status-bar';
+import { LanguageProvider } from '@/lib/i18n/LanguageContext';
 
 export default function RootLayout() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
@@ -23,11 +24,8 @@ export default function RootLayout() {
   useEffect(() => {
     if (session === undefined) return;
 
-    const inAuth = segments[0] === '(auth)';
-
-    if (!session && !inAuth) {
-      router.replace('/(auth)/login');
-    } else if (session && inAuth) {
+    // Oturum açık ve auth sayfasındaysa → tabs'a gönder
+    if (session && segments[0] === '(auth)') {
       router.replace('/(tabs)');
     }
   }, [session, segments]);
@@ -35,9 +33,9 @@ export default function RootLayout() {
   if (session === undefined) return null;
 
   return (
-    <>
+    <LanguageProvider>
       <StatusBar style="dark" />
       <Stack screenOptions={{ headerShown: false }} />
-    </>
+    </LanguageProvider>
   );
 }

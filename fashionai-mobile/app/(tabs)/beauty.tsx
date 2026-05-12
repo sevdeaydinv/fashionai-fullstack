@@ -1,784 +1,675 @@
 import { useState, useEffect, useCallback } from 'react';
+import { useFocusEffect } from 'expo-router';
 import {
   View, Text, StyleSheet, SafeAreaView, ScrollView,
-  TouchableOpacity, ActivityIndicator, Image, Alert,
+  TouchableOpacity, ActivityIndicator, Image, Modal,
 } from 'react-native';
-import * as ImagePicker from 'expo-image-picker';
 import { supabase } from '@/lib/supabase/client';
 import { API_BASE_URL } from '@/lib/config';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
-// ─── Constants ───────────────────────────────────────────────
-const FACE_SHAPES = [
-  { value: 'oval',    label: 'Oval',     icon: '🥚' },
-  { value: 'round',   label: 'Yuvarlak', icon: '⭕' },
-  { value: 'square',  label: 'Kare',     icon: '⬛' },
-  { value: 'heart',   label: 'Kalp',     icon: '🫀' },
-  { value: 'diamond', label: 'Elmas',    icon: '💎' },
-  { value: 'oblong',  label: 'Uzun',     icon: '📏' },
-];
-
-const SKIN_TONES = [
-  { value: 'fair',   label: 'Açık',      color: '#FDDBB4' },
-  { value: 'light',  label: 'Açık-Orta', color: '#F0C490' },
-  { value: 'medium', label: 'Orta',      color: '#D4956A' },
-  { value: 'tan',    label: 'Buğday',    color: '#C07A4A' },
-  { value: 'dark',   label: 'Koyu',      color: '#8B5A2B' },
-  { value: 'deep',   label: 'Çok Koyu',  color: '#4A2C0A' },
-];
-
-const SKIN_TYPES = [
-  { value: 'normal',      label: 'Normal' },
-  { value: 'dry',         label: 'Kuru' },
-  { value: 'oily',        label: 'Yağlı' },
-  { value: 'combination', label: 'Karma' },
-];
-
-const HAIR_TYPES = [
-  { value: 'straight', label: 'Düz' },
-  { value: 'wavy',     label: 'Dalgalı' },
-  { value: 'curly',    label: 'Kıvırcık' },
-  { value: 'coily',    label: 'Afro' },
-];
-
-const HAIR_LENGTHS = [
-  { value: 'short',  label: 'Kısa' },
-  { value: 'medium', label: 'Orta' },
-  { value: 'long',   label: 'Uzun' },
-];
-
-type Tab = 'profile' | 'face_analysis';
+type Tab = 'ai_analysis' | 'profile';
 
 interface BeautyProfile {
-  face_shape?: string;
-  skin_tone?: string;
-  skin_type?: string;
-  hair_type?: string;
-  hair_length?: string;
+  face_shape?: string; skin_tone?: string; skin_type?: string;
+  hair_type?: string;  hair_length?: string;
 }
 
-interface FaceAnalysisHairstyle {
-  name: string;
-  description: string;
-  suitable_for: string;
+interface ClothingItem { name?: string; color_name?: string; image_url?: string; }
+interface OutfitItem { id: string; layer_order?: number; cloth?: ClothingItem; }
+interface Outfit {
+  id: string; name?: string | null; event?: string; season?: string;
+  cover_image_url?: string | null;
+  outfit_items?: OutfitItem[];
 }
 
-interface FaceAnalysisResult {
-  face_shape: string;
-  face_shape_label: string;
-  face_shape_description: string;
-  confidence: number;
-  hairstyle_suggestions: FaceAnalysisHairstyle[];
-  styling_tips: string[];
-  avoid_tips: string[];
-}
+// ─── Static data ─────────────────────────────────────────────
+const ZODIAC_IMG_MAP: Record<string, string> = {
+  aries: 'zodiac-koc.jpg',       taurus: 'zodiac-boga.jpg',      gemini: 'zodiac-ikizler.jpg',
+  cancer: 'zodiac-yengec.jpg',   leo: 'zodiac-aslan.jpg',         virgo: 'zodiac-basak.jpg',
+  libra: 'zodiac-terazi.jpg',    scorpio: 'zodiac-akrep.jpg',     sagittarius: 'zodiac-yay.jpg',
+  capricorn: 'zodiac-oglak.jpg', aquarius: 'zodiac-kova.jpg',     pisces: 'zodiac-balik.jpg',
+};
+
+const MAKEUP_REF_MAP: Record<string, string> = {
+  'fair-graduation':  'makeup-acik-graduation.jpg',
+  'fair-glamorous':   'makeup-acik-glamorous.jpg',
+  'fair-soft':        'makeup-acik-soft.jpg',
+  'medium-graduation':'makeup-orta-graduation.jpg',
+  'medium-glamorous': 'makeup-orta-glamorous.jpg',
+  'medium-soft':      'makeup-orta-soft.jpg',
+  'dark-glamorous':   'makeup-koyu-glamorous.jpg',
+  'dark-soft':        'makeup-koyu-soft.jpg',
+};
+
+const HAIR_DATA = [
+  { img: 'hair-dusuk-topuz.jpg',    title: 'Dağınık Topuz',          desc: 'Dağınık topuz modeli, zarif ve modern bir görünüm sunar.',                          tags: ['Romantik','Soft','Zarif'],   recommended: false },
+  { img: 'hair-yarim-toplu.jpg',    title: 'Yarı Toplu Dalgalı',     desc: 'Yarı toplu dalgalı saç modeli, hem sade hem de romantik bir stil oluşturur.',         tags: ['Romantik','Soft','Günlük'],  recommended: false },
+  { img: 'hair-at-kuyrugu.jpg',     title: 'At Kuyruğu',             desc: 'Toplanmış at kuyruğu modeli, şık ve güçlü bir görünüm sağlar.',                      tags: ['Şık','Modern','Minimal'],    recommended: false },
+  { img: 'hair-dalgali.jpg',        title: 'Doğal Dalgalı',          desc: 'Doğal dalgalar, feminen ve zarif bir görünüm kazandırır.',                            tags: ['Doğal','Soft','Zarif'],      recommended: false },
+  { img: 'hair-balik-sirti.jpg',    title: 'Balık Sırtı Örgü',       desc: 'Boyun ve sırt hattını vurgulayan bu stil, zarif ve feminen bir hava katar.',          tags: ['Zarif','Örgülü','Şık'],      recommended: false },
+  { img: 'hair-tac-orgu.jpg',       title: 'Örgülü Taç',             desc: 'Yüz hatlarını ve boyun bölgesini öne çıkaran romantik bir stil.',                     tags: ['Romantik','Davet','Zarif'],  recommended: false },
+  { img: 'hair-yandan-orgu.jpg',    title: 'Yandan Örgü',            desc: 'Yüz hattını yumuşak bir şekilde çerçeveleyen zarif bir saç modeli.',                 tags: ['Soft','Günlük','Feminen'],   recommended: false },
+  { img: 'hair-kisa-bob.jpg',       title: 'Kahküllü Kısa Bob',      desc: 'Genç bir ifade kazandıran, modern ve dikkat çekici bir stil.',                        tags: ['Modern','Çarpıcı','Şık'],    recommended: false },
+  { img: 'hair-at-kuyrugu-duz.jpg', title: 'Yüksek Düz At Kuyruğu', desc: 'Yüz hatlarını belirginleştiren güçlü ve enerjik bir görünüm.',                       tags: ['Modern','Minimal','Şık'],    recommended: false },
+  { img: 'hair-at-kuyrugu-2.jpg',   title: 'Dalgalı At Kuyruğu',    desc: 'Dinamik ve göz alıcı, hacimli bir at kuyruğu modeli.',                                tags: ['Enerjik','Modern','Şık'],    recommended: false },
+];
+
+const STEP_COLORS = ['#E8547A','#D4547A','#E8A0B4','#7B9FD4','#8BC4A0','#E8547A'];
+
+const PINK        = '#D4547A';
+const PINK_BG     = 'rgba(212,84,122,0.06)';
+const PINK_BORDER = 'rgba(212,84,122,0.2)';
 
 // ─── Component ───────────────────────────────────────────────
 export default function BeautyScreen() {
-  const [activeTab, setActiveTab] = useState<Tab>('profile');
-  const [userId, setUserId] = useState<string | null>(null);
-  const [gender, setGender] = useState<string | null>(null);
-  const [birthDate, setBirthDate] = useState<string | null>(null);
-  const [beautyProfile, setBeautyProfile] = useState<BeautyProfile>({});
-  const [profileLoading, setProfileLoading] = useState(true);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
+  const { t } = useLanguage();
+  const ZODIAC_OPTIONS = Object.entries(t.beauty.zodiacOptions) as [string, string][];
 
-  // AI recommendations
-  const [aiLoading, setAiLoading] = useState(false);
-  const [aiResult, setAiResult] = useState<any>(null);
-  const [aiError, setAiError] = useState<string | null>(null);
+  const [activeTab,       setActiveTab]       = useState<Tab>('ai_analysis');
+  const [beautyProfile,   setBeautyProfile]   = useState<BeautyProfile>({});
+  const [outfits,         setOutfits]         = useState<Outfit[]>([]);
+  const [profileLoading,  setProfileLoading]  = useState(true);
 
-  // Face analysis
-  const [faceUri, setFaceUri] = useState<string | null>(null);
-  const [faceLoading, setFaceLoading] = useState(false);
-  const [faceResult, setFaceResult] = useState<FaceAnalysisResult | null>(null);
-  const [faceError, setFaceError] = useState<string | null>(null);
+  // Burç Modu
+  const [aiAnalysisZodiac, setAiAnalysisZodiac] = useState('');
 
-  // ── Load user & beauty profile
+  // AI Makyaj Asistanı
+  const [selectedOutfitId,  setSelectedOutfitId]  = useState('');
+  const [outfitModalOpen,   setOutfitModalOpen]   = useState(false);
+  const [makeupLoading,     setMakeupLoading]     = useState(false);
+  const [makeupResult,      setMakeupResult]      = useState<{
+    look_name: string; formality: string; description: string;
+    steps: string[]; key_colors: string[]; tips: string[];
+  } | null>(null);
+  const [makeupError, setMakeupError] = useState<string | null>(null);
+
+  // Saç Stillerim
+  const [expandedHairIdx, setExpandedHairIdx] = useState<number | null>(null);
+
+  // ── Load outfits (runs every time screen comes into focus) ─
+  const loadOutfits = useCallback(async (uid: string) => {
+    const { data: outfitData } = await supabase
+      .from('outfits')
+      .select('id, name, event, season, cover_image_url, outfit_items(id, layer_order, cloth:cloth_id(name, color_name, image_url))')
+      .eq('user_id', uid)
+      .order('created_at', { ascending: false });
+
+    if (outfitData) {
+      setOutfits(outfitData as Outfit[]);
+      // If selected outfit was deleted, clear selection
+      setSelectedOutfitId(prev =>
+        (outfitData as Outfit[]).find((o) => o.id === prev) ? prev : ''
+      );
+    }
+  }, []);
+
+  // ── Initial load (beauty profile + outfits) ───────────────
   useEffect(() => {
     (async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
-      setUserId(user.id);
 
-      // Get profile data (gender, birth_date)
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('gender, birth_date')
-        .eq('id', user.id)
-        .single();
-      if (profileData) {
-        setGender(profileData.gender);
-        setBirthDate(profileData.birth_date);
-      }
-
-      // Get beauty profile
       const { data: bp } = await supabase
-        .from('beauty_profiles')
-        .select('*')
-        .eq('user_id', user.id)
-        .single();
-      if (bp) setBeautyProfile(bp);
+        .from('beauty_profiles').select('*').eq('user_id', user.id).single();
 
+      if (bp) setBeautyProfile(bp);
+      await loadOutfits(user.id);
       setProfileLoading(false);
     })();
   }, []);
 
-  // ── Save beauty profile
-  const handleSave = async () => {
-    if (!userId) return;
-    setSaving(true);
-    await supabase.from('beauty_profiles').upsert({
-      user_id: userId,
-      ...beautyProfile,
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
-  };
+  // ── Refresh outfits whenever beauty tab is focused ────────
+  useFocusEffect(
+    useCallback(() => {
+      supabase.auth.getUser().then(({ data: { user } }) => {
+        if (user) loadOutfits(user.id);
+      });
+    }, [loadOutfits])
+  );
 
-  // ── AI Recommendations
-  const handleGetRecommendations = async () => {
-    if (!userId) return;
-    setAiLoading(true);
-    setAiError(null);
-    setAiResult(null);
-
-    let age: number | null = null;
-    if (birthDate) {
-      const birth = new Date(birthDate);
-      age = new Date().getFullYear() - birth.getFullYear();
-    }
-
+  // ── AI Makyaj Asistanı ────────────────────────────────────
+  const handleMakeupRecommendation = async () => {
+    setMakeupLoading(true);
+    setMakeupError(null);
+    setMakeupResult(null);
+    const selectedOutfit = outfits.find(o => o.id === selectedOutfitId);
     try {
       const res = await fetch(`${API_BASE_URL}/api/beauty-recommendations`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ profile: beautyProfile, gender, age }),
+        body: JSON.stringify({
+          type: 'makeup',
+          profile: beautyProfile,
+          outfit: selectedOutfit ? { event: selectedOutfit.event, season: selectedOutfit.season } : null,
+        }),
       });
       if (res.ok) {
         const { payload } = await res.json();
-        setAiResult(payload);
+        setMakeupResult(payload);
       } else {
-        setAiError('AI önerileri alınamadı. Profil bilgilerinizi doldurun.');
+        setMakeupError('Makyaj önerisi alınamadı.');
       }
     } catch {
-      setAiError('Bağlantı hatası. Tekrar deneyin.');
+      setMakeupError('Bağlantı hatası.');
     } finally {
-      setAiLoading(false);
+      setMakeupLoading(false);
     }
   };
 
-  // ── Pick face photo
-  const handlePickFacePhoto = async () => {
-    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (status !== 'granted') {
-      Alert.alert('İzin Gerekli', 'Galeri erişimi gerekli.');
-      return;
-    }
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: 'images',
-      allowsEditing: true,
-      aspect: [1, 1],
-      quality: 0.8,
-    });
-    if (!result.canceled && result.assets[0]) {
-      setFaceUri(result.assets[0].uri);
-      setFaceResult(null);
-      setFaceError(null);
-    }
-  };
+  // ── Derived values ────────────────────────────────────────
+  const selOutfit   = outfits.find(o => o.id === selectedOutfitId);
+  const skinToneKey = beautyProfile.skin_tone ?? 'medium';
+  const ev          = selOutfit?.event ?? '';
+  const formality   = ['invitation','date_night','business','graduation'].includes(ev) ? 'glamorous' : 'soft';
+  const refImg = MAKEUP_REF_MAP[`${skinToneKey}-${ev}`]
+    ?? MAKEUP_REF_MAP[`${skinToneKey}-${formality}`]
+    ?? MAKEUP_REF_MAP[`${skinToneKey}-soft`]
+    ?? MAKEUP_REF_MAP['medium-soft'];
 
-  // ── Face Analysis
-  const handleFaceAnalysis = async () => {
-    if (!faceUri) return;
-    setFaceLoading(true);
-    setFaceError(null);
-    setFaceResult(null);
-
-    try {
-      const formData = new FormData();
-      formData.append('image', {
-        uri: faceUri,
-        name: 'face.jpg',
-        type: 'image/jpeg',
-      } as any);
-
-      const res = await fetch(`${API_BASE_URL}/api/face-analysis`, {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (res.ok) {
-        const { result } = await res.json();
-        setFaceResult(result);
-      } else {
-        setFaceError('Yüz analizi yapılamadı. Lütfen net bir yüz fotoğrafı yükleyin.');
-      }
-    } catch {
-      setFaceError('Bağlantı hatası. Tekrar deneyin.');
-    } finally {
-      setFaceLoading(false);
-    }
-  };
-
-  const isGenderMale = gender === 'male';
+  const hairGroup1 = HAIR_DATA.slice(0, 5);
+  const hairGroup2 = HAIR_DATA.slice(5, 10);
 
   if (profileLoading) {
     return (
-      <SafeAreaView style={styles.container}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator color="#111" />
-        </View>
+      <SafeAreaView style={s.container}>
+        <View style={s.loadingBox}><ActivityIndicator color="#C41E3A" /></View>
       </SafeAreaView>
     );
   }
 
+  // ── Outfit item grid helper (sol kutu içi) ───────────────
+  const OutfitItemGrid = ({ outfit }: { outfit: Outfit }) => {
+    const items = (outfit.outfit_items ?? [])
+      .sort((a, b) => (a.layer_order ?? 0) - (b.layer_order ?? 0))
+      .map(oi => oi.cloth)
+      .filter(Boolean) as ClothingItem[];
+
+    // 4 hücrelik 2×2 grid — her zaman 4 kutu göster
+    const slots = [0, 1, 2, 3];
+    return (
+      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 3, width: '100%', height: '100%', padding: 5 }}>
+        {slots.map(i => {
+          const item = items[i];
+          return (
+            <View key={i} style={{ width: '47%', height: '47%', borderRadius: 6, overflow: 'hidden', backgroundColor: '#EDE8E3' }}>
+              {item?.image_url ? (
+                <Image source={{ uri: item.image_url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+              ) : item ? (
+                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', padding: 3 }}>
+                  <Text style={{ fontSize: 8, color: '#9E9690', textAlign: 'center' }} numberOfLines={2}>
+                    {item.name ?? item.color_name ?? '—'}
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ flex: 1, backgroundColor: '#F0EDE9' }} />
+              )}
+            </View>
+          );
+        })}
+      </View>
+    );
+  };
+
   return (
-    <SafeAreaView style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.headerLabel}>PERSONALIZATION</Text>
-        <Text style={styles.headerTitle}>Beauty Assistant</Text>
+    <SafeAreaView style={s.container}>
+
+      {/* ── Header ── */}
+      <View style={s.header}>
+        <Text style={s.headerLabel}>{t.beauty.sectionLabel.toUpperCase()}</Text>
+        <Text style={s.headerTitle}>{t.beauty.title}</Text>
       </View>
 
-      {/* Tabs */}
-      <View style={styles.tabBar}>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'profile' && styles.tabActive]}
-          onPress={() => setActiveTab('profile')}
-        >
-          <Text style={[styles.tabText, activeTab === 'profile' && styles.tabTextActive]}>
-            Beauty Profile
-          </Text>
-        </TouchableOpacity>
-        <TouchableOpacity
-          style={[styles.tab, activeTab === 'face_analysis' && styles.tabActive]}
-          onPress={() => setActiveTab('face_analysis')}
-        >
-          <Text style={[styles.tabText, activeTab === 'face_analysis' && styles.tabTextActive]}>
-            Yüz Analizi
-          </Text>
-        </TouchableOpacity>
-      </View>
+      {/* ── Tabs ── */}
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={s.tabBar} contentContainerStyle={s.tabBarContent}>
+        {([
+          { key: 'ai_analysis', label: 'Burç Modu' },
+          { key: 'profile',     label: 'Güzellik Modu' },
+        ] as { key: Tab; label: string }[]).map(tab => (
+          <TouchableOpacity
+            key={tab.key}
+            style={[s.tab, activeTab === tab.key && s.tabActive]}
+            onPress={() => setActiveTab(tab.key)}
+          >
+            <Text style={[s.tabText, activeTab === tab.key && s.tabTextActive]}>{tab.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </ScrollView>
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
-      >
-        {/* ── Face Analysis Tab ── */}
-        {activeTab === 'face_analysis' && (
-          <View style={styles.section}>
-            <Text style={styles.sectionLabel}>Fotoğraf Yükle</Text>
-            <Text style={styles.hint}>Net, ön cepheden çekilmiş bir yüz fotoğrafı yükleyin. Yapay zeka yüz şeklinizi analiz edecek.</Text>
+      <ScrollView style={s.scroll} contentContainerStyle={s.scrollContent} showsVerticalScrollIndicator={false}>
 
-            {faceUri ? (
-              <View style={styles.facePreviewContainer}>
-                <Image source={{ uri: faceUri }} style={styles.facePreview} />
-                <TouchableOpacity
-                  style={styles.btnOutline}
-                  onPress={() => { setFaceUri(null); setFaceResult(null); setFaceError(null); }}
-                >
-                  <Text style={styles.btnOutlineText}>Fotoğrafı Değiştir</Text>
-                </TouchableOpacity>
-              </View>
-            ) : (
-              <TouchableOpacity style={styles.uploadArea} onPress={handlePickFacePhoto}>
-                <Text style={styles.uploadIcon}>📷</Text>
-                <Text style={styles.uploadText}>Fotoğraf seçmek için dokunun</Text>
-                <Text style={styles.uploadHint}>JPG, PNG veya WebP</Text>
-              </TouchableOpacity>
-            )}
+        {/* ══════════ BURÇ MODU ══════════ */}
+        {activeTab === 'ai_analysis' && (
+          <View style={s.section}>
 
-            {faceUri && (
-              <TouchableOpacity
-                style={[styles.btnBrand, faceLoading && styles.btnDisabled]}
-                onPress={handleFaceAnalysis}
-                disabled={faceLoading}
-              >
-                {faceLoading
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={styles.btnBrandText}>✨ Yüzümü Analiz Et</Text>
-                }
-              </TouchableOpacity>
-            )}
-
-            {faceError && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{faceError}</Text>
-              </View>
-            )}
-
-            {/* Face Analysis Results */}
-            {faceResult && (
+            <View style={[s.card, { gap: 18 }]}>
               <View>
-                {/* Face Shape */}
-                <View style={styles.card}>
-                  <Text style={styles.sectionLabel}>Yüz Şekli Analizi</Text>
-                  <View style={styles.faceShapeRow}>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.faceShapeTitle}>{faceResult.face_shape_label}</Text>
-                      <Text style={styles.faceShapeDesc}>{faceResult.face_shape_description}</Text>
-                    </View>
-                    <View style={styles.confidenceBox}>
-                      <Text style={styles.confidenceLabel}>GÜVEN</Text>
-                      <Text style={styles.confidenceValue}>{Math.round(faceResult.confidence * 100)}%</Text>
-                    </View>
-                  </View>
-                </View>
-
-                {/* Hairstyle Suggestions */}
-                <View style={styles.card}>
-                  <Text style={styles.sectionLabel}>Saç Modeli Önerileri</Text>
-                  {faceResult.hairstyle_suggestions.map((style, i) => (
-                    <View key={i} style={styles.hairstyleItem}>
-                      <Text style={styles.hairstyleName}>{style.name}</Text>
-                      <Text style={styles.hairstyleDesc}>{style.description}</Text>
-                      <Text style={styles.hairstyleSuitable}>{style.suitable_for}</Text>
-                    </View>
-                  ))}
-                </View>
-
-                {/* Styling Tips */}
-                {faceResult.styling_tips.length > 0 && (
-                  <View style={styles.card}>
-                    <Text style={styles.sectionLabel}>Stil İpuçları</Text>
-                    {faceResult.styling_tips.map((tip, i) => (
-                      <View key={i} style={styles.tipRow}>
-                        <Text style={styles.tipCheck}>✓</Text>
-                        <Text style={styles.tipText}>{tip}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Avoid Tips */}
-                {faceResult.avoid_tips.length > 0 && (
-                  <View style={styles.card}>
-                    <Text style={styles.sectionLabel}>Kaçınılması Gerekenler</Text>
-                    {faceResult.avoid_tips.map((tip, i) => (
-                      <View key={i} style={styles.tipRow}>
-                        <Text style={[styles.tipCheck, { color: '#f59e0b' }]}>✗</Text>
-                        <Text style={styles.tipText}>{tip}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
+                <Text style={s.sectionLabel}>{t.beauty.zodiacLabel}</Text>
+                <Text style={[s.hint, { marginTop: 4 }]}>{t.beauty.zodiacOptional}</Text>
               </View>
-            )}
-          </View>
-        )}
-
-        {/* ── Beauty Profile Tab ── */}
-        {activeTab === 'profile' && (
-          <View>
-            <View style={styles.card}>
-              <Text style={styles.sectionLabel}>Beauty Profile</Text>
-
-              {/* Face Shape */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Face Shape</Text>
-                <View style={styles.faceShapeGrid}>
-                  {FACE_SHAPES.map(s => (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {ZODIAC_OPTIONS.map(([val, label]) => {
+                  const active = aiAnalysisZodiac === val;
+                  return (
                     <TouchableOpacity
-                      key={s.value}
-                      style={[
-                        styles.faceShapeChip,
-                        beautyProfile.face_shape === s.value && styles.chipSelected,
-                      ]}
-                      onPress={() => setBeautyProfile(p => ({ ...p, face_shape: s.value }))}
+                      key={val}
+                      onPress={() => setAiAnalysisZodiac(active ? '' : val)}
+                      style={{
+                        width: '30.5%', paddingVertical: 10, borderRadius: 12,
+                        alignItems: 'center', borderWidth: 1.5,
+                        borderColor: active ? '#C41E3A' : '#E2DDD7',
+                        backgroundColor: active ? 'rgba(196,30,58,0.06)' : '#FAFAF9',
+                      }}
                     >
-                      <Text style={styles.faceShapeIcon}>{s.icon}</Text>
-                      <Text style={[
-                        styles.chipText,
-                        beautyProfile.face_shape === s.value && styles.chipTextSelected,
-                      ]}>{s.label}</Text>
+                      <Text style={{ fontSize: 11, fontWeight: '700', letterSpacing: 0.5, textTransform: 'uppercase', color: active ? '#C41E3A' : '#706A64' }}>
+                        {label}
+                      </Text>
                     </TouchableOpacity>
-                  ))}
-                </View>
+                  );
+                })}
               </View>
-
-              {/* Skin Tone */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Skin Tone</Text>
-                <View style={styles.row}>
-                  {SKIN_TONES.map(t => (
-                    <TouchableOpacity
-                      key={t.value}
-                      style={[
-                        styles.skinToneChip,
-                        beautyProfile.skin_tone === t.value && styles.chipSelected,
-                      ]}
-                      onPress={() => setBeautyProfile(p => ({ ...p, skin_tone: t.value }))}
-                    >
-                      <View style={[styles.skinDot, { backgroundColor: t.color }]} />
-                      <Text style={[
-                        styles.chipTextSmall,
-                        beautyProfile.skin_tone === t.value && styles.chipTextSelected,
-                      ]}>{t.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              {/* Skin Type */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Skin Type</Text>
-                <View style={styles.row}>
-                  {SKIN_TYPES.map(t => (
-                    <TouchableOpacity
-                      key={t.value}
-                      style={[
-                        styles.flexChip,
-                        beautyProfile.skin_type === t.value && styles.chipSelected,
-                      ]}
-                      onPress={() => setBeautyProfile(p => ({ ...p, skin_type: t.value }))}
-                    >
-                      <Text style={[
-                        styles.chipText,
-                        beautyProfile.skin_type === t.value && styles.chipTextSelected,
-                      ]}>{t.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              {/* Hair Type */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Hair Type</Text>
-                <View style={styles.row}>
-                  {HAIR_TYPES.map(t => (
-                    <TouchableOpacity
-                      key={t.value}
-                      style={[
-                        styles.flexChip,
-                        beautyProfile.hair_type === t.value && styles.chipSelected,
-                      ]}
-                      onPress={() => setBeautyProfile(p => ({ ...p, hair_type: t.value }))}
-                    >
-                      <Text style={[
-                        styles.chipText,
-                        beautyProfile.hair_type === t.value && styles.chipTextSelected,
-                      ]}>{t.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              {/* Hair Length */}
-              <View style={styles.fieldGroup}>
-                <Text style={styles.fieldLabel}>Hair Length</Text>
-                <View style={styles.row}>
-                  {HAIR_LENGTHS.map(l => (
-                    <TouchableOpacity
-                      key={l.value}
-                      style={[
-                        styles.flexChip,
-                        beautyProfile.hair_length === l.value && styles.chipSelected,
-                      ]}
-                      onPress={() => setBeautyProfile(p => ({ ...p, hair_length: l.value }))}
-                    >
-                      <Text style={[
-                        styles.chipText,
-                        beautyProfile.hair_length === l.value && styles.chipTextSelected,
-                      ]}>{l.label}</Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </View>
-
-              {/* Save */}
-              <TouchableOpacity
-                style={[styles.btnPrimary, saving && styles.btnDisabled]}
-                onPress={handleSave}
-                disabled={saving}
-              >
-                {saving
-                  ? <ActivityIndicator color="#fff" size="small" />
-                  : <Text style={styles.btnPrimaryText}>{saved ? '✓ Kaydedildi' : 'Profili Kaydet'}</Text>
-                }
-              </TouchableOpacity>
             </View>
 
-            {/* AI Recommendations Button */}
-            <TouchableOpacity
-              style={[styles.btnBrand, aiLoading && styles.btnDisabled]}
-              onPress={handleGetRecommendations}
-              disabled={aiLoading}
-            >
-              {aiLoading
-                ? <ActivityIndicator color="#fff" size="small" />
-                : <Text style={styles.btnBrandText}>✨ AI Güzellik Önerileri Al</Text>
-              }
-            </TouchableOpacity>
-
-            {aiError && (
-              <View style={styles.errorBox}>
-                <Text style={styles.errorText}>{aiError}</Text>
+            {aiAnalysisZodiac && ZODIAC_IMG_MAP[aiAnalysisZodiac] ? (
+              <View style={{ borderRadius: 20, overflow: 'hidden', borderWidth: 1, borderColor: '#E2DDD7', backgroundColor: '#0A0A0A' }}>
+                <Image
+                  source={{ uri: `${API_BASE_URL}/beauty/${ZODIAC_IMG_MAP[aiAnalysisZodiac]}` }}
+                  style={{ width: '100%', height: 480 }}
+                  resizeMode="contain"
+                />
+              </View>
+            ) : (
+              <View style={{ borderRadius: 20, borderWidth: 1, borderStyle: 'dashed', borderColor: '#D5CFCB', alignItems: 'center', justifyContent: 'center', paddingVertical: 52, backgroundColor: '#FAFAF9', gap: 10 }}>
+                <Text style={{ fontSize: 32 }}>✨</Text>
+                <Text style={{ fontSize: 13, fontWeight: '600', color: '#9E9690', textAlign: 'center' }}>Burcunu seç</Text>
+                <Text style={{ fontSize: 11, color: '#C8C2BB', textAlign: 'center', paddingHorizontal: 32 }}>
+                  Burç seçince makyaj ilham fotoğrafı burada görünür
+                </Text>
               </View>
             )}
 
-            {/* AI Results */}
-            {aiResult && (
-              <View>
-                <Text style={[styles.sectionLabel, { marginBottom: 12 }]}>Kişisel Önerileriniz</Text>
-
-                {/* Makeup (female) */}
-                {aiResult.makeup && !isGenderMale && (
-                  <View style={styles.card}>
-                    <Text style={styles.cardTitle}>💄 Makyaj Önerileri</Text>
-                    {aiResult.makeup.foundation && (
-                      <View style={styles.aiItem}>
-                        <Text style={styles.aiItemLabel}>Fondöten</Text>
-                        <Text style={styles.aiItemText}>{aiResult.makeup.foundation}</Text>
-                      </View>
-                    )}
-                    {aiResult.makeup.lipstick && (
-                      <View style={styles.aiItem}>
-                        <Text style={styles.aiItemLabel}>Ruj</Text>
-                        <Text style={styles.aiItemText}>{aiResult.makeup.lipstick}</Text>
-                      </View>
-                    )}
-                    {aiResult.makeup.eyeshadow && (
-                      <View style={styles.aiItem}>
-                        <Text style={styles.aiItemLabel}>Göz Farı</Text>
-                        <Text style={styles.aiItemText}>{aiResult.makeup.eyeshadow}</Text>
-                      </View>
-                    )}
-                    {aiResult.makeup.blush && (
-                      <View style={styles.aiItem}>
-                        <Text style={styles.aiItemLabel}>Allık</Text>
-                        <Text style={styles.aiItemText}>{aiResult.makeup.blush}</Text>
-                      </View>
-                    )}
-                    {aiResult.makeup.tips && aiResult.makeup.tips.map((tip: string, i: number) => (
-                      <View key={i} style={styles.tipRow}>
-                        <Text style={styles.tipCheck}>✓</Text>
-                        <Text style={styles.tipText}>{tip}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Hairstyle */}
-                {aiResult.hairstyle && (
-                  <View style={styles.card}>
-                    <Text style={styles.cardTitle}>💇 Saç Önerileri</Text>
-                    {aiResult.hairstyle.recommended_style && (
-                      <View style={styles.aiItem}>
-                        <Text style={styles.aiItemLabel}>Önerilen Stil</Text>
-                        <Text style={styles.aiItemText}>{aiResult.hairstyle.recommended_style}</Text>
-                      </View>
-                    )}
-                    {aiResult.hairstyle.color_suggestion && (
-                      <View style={styles.aiItem}>
-                        <Text style={styles.aiItemLabel}>Renk Önerisi</Text>
-                        <Text style={styles.aiItemText}>{aiResult.hairstyle.color_suggestion}</Text>
-                      </View>
-                    )}
-                    {aiResult.hairstyle.care_tips && aiResult.hairstyle.care_tips.map((tip: string, i: number) => (
-                      <View key={i} style={styles.tipRow}>
-                        <Text style={styles.tipCheck}>✓</Text>
-                        <Text style={styles.tipText}>{tip}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-
-                {/* Grooming (male) */}
-                {aiResult.grooming && isGenderMale && (
-                  <View style={styles.card}>
-                    <Text style={styles.cardTitle}>🧔 Bakım Önerileri</Text>
-                    {aiResult.grooming.beard_style && (
-                      <View style={styles.aiItem}>
-                        <Text style={styles.aiItemLabel}>Sakal Stili</Text>
-                        <Text style={styles.aiItemText}>{aiResult.grooming.beard_style}</Text>
-                      </View>
-                    )}
-                    {aiResult.grooming.skincare && (
-                      <View style={styles.aiItem}>
-                        <Text style={styles.aiItemLabel}>Cilt Bakımı</Text>
-                        <Text style={styles.aiItemText}>{aiResult.grooming.skincare}</Text>
-                      </View>
-                    )}
-                    {aiResult.grooming.tips && aiResult.grooming.tips.map((tip: string, i: number) => (
-                      <View key={i} style={styles.tipRow}>
-                        <Text style={styles.tipCheck}>✓</Text>
-                        <Text style={styles.tipText}>{tip}</Text>
-                      </View>
-                    ))}
-                  </View>
-                )}
-              </View>
-            )}
           </View>
         )}
+
+        {/* ══════════ GÜZELLİK MODU ══════════ */}
+        {activeTab === 'profile' && (
+          <View style={s.section}>
+
+            {/* ── AI Makyaj Asistanı header ── */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 4, paddingHorizontal: 2 }}>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: '#141210' }}>AI Makyaj Asistanı</Text>
+              <Text style={{ color: PINK, fontSize: 16 }}>✦</Text>
+            </View>
+            <Text style={[s.hint, { paddingHorizontal: 2, marginBottom: 12 }]}>Kişisel makyaj önerilerini keşfet.</Text>
+
+            {/* ── Main card: 2-column (outfit left | skin tone + button right) ── */}
+            <View style={s.card}>
+              <View style={{ flexDirection: 'row', gap: 14 }}>
+
+                {/* Left — Outfit selector box */}
+                <View style={{ width: 120 }}>
+                  <Text style={[s.fieldLabel, { marginBottom: 8 }]}>KOMBİNİN</Text>
+                  <TouchableOpacity
+                    onPress={() => setOutfitModalOpen(true)}
+                    style={{
+                      width: 120, height: 120, borderRadius: 14, borderWidth: 1.5,
+                      borderStyle: selectedOutfitId ? 'solid' : 'dashed',
+                      borderColor: selectedOutfitId ? PINK : '#D5CFCB',
+                      backgroundColor: selectedOutfitId ? PINK_BG : '#F9F7F5',
+                      overflow: 'hidden',
+                      alignItems: 'center', justifyContent: 'center',
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    {selectedOutfitId && selOutfit ? (
+                      <View style={{ padding: 6, width: '100%', height: '100%' }}>
+                        <OutfitItemGrid outfit={selOutfit} />
+                      </View>
+                    ) : (
+                      <View style={{ alignItems: 'center', gap: 4 }}>
+                        <Text style={{ fontSize: 26, color: PINK, lineHeight: 30 }}>+</Text>
+                        <Text style={{ fontSize: 10, fontWeight: '600', color: '#9E9690' }}>Kombin Seç</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                  {selectedOutfitId && (
+                    <TouchableOpacity onPress={() => setSelectedOutfitId('')} style={{ marginTop: 6, alignItems: 'center' }}>
+                      <Text style={{ fontSize: 10, color: '#9E9690' }}>✕ Kaldır</Text>
+                    </TouchableOpacity>
+                  )}
+                </View>
+
+                {/* Right — Skin tone + generate button */}
+                <View style={{ flex: 1, justifyContent: 'space-between' }}>
+                  <View>
+                    <Text style={[s.fieldLabel, { marginBottom: 8 }]}>CİLT TONUN</Text>
+                    <View style={{ flexDirection: 'row', gap: 6 }}>
+                      {[
+                        { value: 'fair',   label: 'Açık',  color: '#FDDBB4' },
+                        { value: 'medium', label: 'Orta',  color: '#D4956A' },
+                        { value: 'dark',   label: 'Koyu',  color: '#8B5A2B' },
+                      ].map(st => {
+                        const active = beautyProfile.skin_tone === st.value;
+                        return (
+                          <TouchableOpacity key={st.value}
+                            onPress={() => setBeautyProfile(p => ({ ...p, skin_tone: st.value }))}
+                            style={{
+                              flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                              gap: 4, borderWidth: 1.5, borderRadius: 20, paddingVertical: 8,
+                              borderColor: active ? PINK : '#E2DDD7',
+                              backgroundColor: active ? PINK_BG : '#F5F2EE',
+                            }}
+                          >
+                            <View style={{ width: 9, height: 9, borderRadius: 5, backgroundColor: st.color }} />
+                            <Text style={{ fontSize: 11, fontWeight: '700', color: active ? PINK : '#706A64' }}>{st.label}</Text>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
+                  </View>
+
+                  {/* Generate button */}
+                  <TouchableOpacity
+                    onPress={handleMakeupRecommendation}
+                    disabled={makeupLoading}
+                    style={{
+                      marginTop: 12,
+                      backgroundColor: makeupLoading ? '#E2DDD7' : '#C41E3A',
+                      borderRadius: 14, paddingVertical: 13,
+                      alignItems: 'center', justifyContent: 'center',
+                      flexDirection: 'row', gap: 6,
+                    }}
+                  >
+                    {makeupLoading
+                      ? <><ActivityIndicator color="#fff" size="small" /><Text style={[s.btnBrandText, { marginLeft: 6 }]}>Oluşturuluyor...</Text></>
+                      : <Text style={s.btnBrandText}>Makyaj Önerisi Oluştur ✦</Text>
+                    }
+                  </TouchableOpacity>
+                </View>
+
+              </View>
+
+              {makeupError && <View style={[s.errorBox, { marginTop: 12 }]}><Text style={s.errorText}>{makeupError}</Text></View>}
+            </View>
+
+            {/* Makeup result */}
+            {makeupResult && (
+              <View style={s.card}>
+                <Text style={[s.sectionLabel, { marginBottom: 12 }]}>Senin AI Makyaj Önerin ✦</Text>
+
+                {refImg && (
+                  <View style={{ borderRadius: 10, overflow: 'hidden', backgroundColor: '#F5F2EE', marginBottom: 14 }}>
+                    <Image source={{ uri: `${API_BASE_URL}/beauty/${refImg}` }} style={{ width: '100%', height: 240 }} resizeMode="contain" />
+                  </View>
+                )}
+
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 6, flexWrap: 'wrap' }}>
+                  <Text style={{ fontSize: 16, fontWeight: '700', color: '#141210' }}>{makeupResult.look_name}</Text>
+                  {makeupResult.formality && (
+                    <View style={{ backgroundColor: PINK_BG, borderWidth: 1, borderColor: PINK_BORDER, borderRadius: 20, paddingHorizontal: 9, paddingVertical: 2 }}>
+                      <Text style={{ fontSize: 9, fontWeight: '700', color: PINK, textTransform: 'uppercase', letterSpacing: 1 }}>
+                        {makeupResult.formality === 'glamorous' ? 'ŞIK' : makeupResult.formality === 'soft' ? 'SOFT' : 'DOĞAL'}
+                      </Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[s.subCardDesc, { marginBottom: 14 }]}>{makeupResult.description}</Text>
+
+                <View style={{ marginBottom: 14 }}>
+                  <Text style={[s.sectionLabel, { marginBottom: 8 }]}>Renk Paleti</Text>
+                  <View style={{ flexDirection: 'row', gap: 8 }}>
+                    {['#F4879B','#D4547A','#E8A0B4','#C07060','#B07060','#F5DDD0'].map((c, i) => (
+                      <View key={i} style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: c, borderWidth: 2, borderColor: '#fff', shadowColor: '#000', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.15, shadowRadius: 2, elevation: 2 }} />
+                    ))}
+                  </View>
+                </View>
+
+                {makeupResult.steps?.length > 0 && (
+                  <View style={{ marginBottom: 12 }}>
+                    <Text style={[s.sectionLabel, { marginBottom: 10 }]}>Makyaj Adımları</Text>
+                    {makeupResult.steps.map((step, i) => (
+                      <View key={i} style={{ flexDirection: 'row', alignItems: 'flex-start', gap: 8, marginBottom: 8 }}>
+                        <View style={{ width: 20, height: 20, borderRadius: 10, backgroundColor: STEP_COLORS[i % STEP_COLORS.length], alignItems: 'center', justifyContent: 'center', flexShrink: 0, marginTop: 1 }}>
+                          <Text style={{ color: '#fff', fontSize: 9, fontWeight: '800' }}>{i + 1}</Text>
+                        </View>
+                        <Text style={[s.subCardDesc, { flex: 1 }]}>{step}</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+
+                {makeupResult.tips?.slice(0, 3).map((tip, i) => (
+                  <View key={i} style={{ flexDirection: 'row', gap: 6, alignItems: 'flex-start', marginBottom: 5 }}>
+                    <Text style={{ color: PINK, fontSize: 12, flexShrink: 0 }}>✦</Text>
+                    <Text style={[s.subCardDesc, { flex: 1 }]}>{tip}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
+            {/* ── Saç Stillerim ── */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 8, marginBottom: 4, paddingHorizontal: 2 }}>
+              <Text style={{ fontSize: 20, fontWeight: '700', color: '#141210' }}>Saç Stillerim</Text>
+              <Text style={{ color: PINK, fontSize: 16 }}>✦</Text>
+            </View>
+            <Text style={[s.hint, { paddingHorizontal: 2, marginBottom: 12 }]}>Saç uzunluğuna ve kombinin stiline göre öneriler.</Text>
+
+            {/* Group 1 */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+              {hairGroup1.map((hair, i) => {
+                const isSelected = expandedHairIdx === i;
+                return (
+                  <TouchableOpacity key={i} onPress={() => setExpandedHairIdx(isSelected ? null : i)}
+                    style={{ width: '30%', borderRadius: 12, borderWidth: 1.5, overflow: 'hidden', borderColor: isSelected ? PINK : '#E2DDD7', backgroundColor: isSelected ? PINK_BG : '#fff' }}>
+                    <View style={{ width: '100%', aspectRatio: 1, backgroundColor: '#F5F2EE' }}>
+                      <Image source={{ uri: `${API_BASE_URL}/beauty/${hair.img}` }} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+                    </View>
+                    <View style={{ padding: 6 }}>
+                      <Text style={{ fontSize: 9, fontWeight: '700', color: '#141210' }} numberOfLines={2}>{hair.title}</Text>
+                      {hair.recommended && <Text style={{ fontSize: 8, color: PINK, fontWeight: '700', marginTop: 1 }}>✦ Önerilen</Text>}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {expandedHairIdx !== null && expandedHairIdx < 5 && (
+              <View style={{ backgroundColor: PINK_BG, borderWidth: 1, borderColor: PINK_BORDER, borderRadius: 12, padding: 14, flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+                <View style={{ width: 76, height: 76, borderRadius: 10, overflow: 'hidden', backgroundColor: '#F5F2EE' }}>
+                  <Image source={{ uri: `${API_BASE_URL}/beauty/${HAIR_DATA[expandedHairIdx].img}` }} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#141210', marginBottom: 5 }}>{HAIR_DATA[expandedHairIdx].title}</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 7 }}>
+                    {HAIR_DATA[expandedHairIdx].tags.map(tag => (
+                      <View key={tag} style={{ borderWidth: 1, borderColor: '#E2DDD7', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: '#fff' }}>
+                        <Text style={{ fontSize: 10, color: '#706A64' }}>{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <Text style={s.subCardDesc}>{HAIR_DATA[expandedHairIdx].desc}</Text>
+                </View>
+              </View>
+            )}
+
+            {/* Group 2 */}
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 8 }}>
+              {hairGroup2.map((hair, i) => {
+                const idx = i + 5;
+                const isSelected = expandedHairIdx === idx;
+                return (
+                  <TouchableOpacity key={idx} onPress={() => setExpandedHairIdx(isSelected ? null : idx)}
+                    style={{ width: '30%', borderRadius: 12, borderWidth: 1.5, overflow: 'hidden', borderColor: isSelected ? PINK : '#E2DDD7', backgroundColor: isSelected ? PINK_BG : '#fff' }}>
+                    <View style={{ width: '100%', aspectRatio: 1, backgroundColor: '#F5F2EE' }}>
+                      <Image source={{ uri: `${API_BASE_URL}/beauty/${hair.img}` }} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+                    </View>
+                    <View style={{ padding: 6 }}>
+                      <Text style={{ fontSize: 9, fontWeight: '700', color: '#141210' }} numberOfLines={2}>{hair.title}</Text>
+                      {hair.recommended && <Text style={{ fontSize: 8, color: PINK, fontWeight: '700', marginTop: 1 }}>✦ Önerilen</Text>}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+
+            {expandedHairIdx !== null && expandedHairIdx >= 5 && (
+              <View style={{ backgroundColor: PINK_BG, borderWidth: 1, borderColor: PINK_BORDER, borderRadius: 12, padding: 14, flexDirection: 'row', gap: 12, marginBottom: 12 }}>
+                <View style={{ width: 76, height: 76, borderRadius: 10, overflow: 'hidden', backgroundColor: '#F5F2EE' }}>
+                  <Image source={{ uri: `${API_BASE_URL}/beauty/${HAIR_DATA[expandedHairIdx].img}` }} style={{ width: '100%', height: '100%' }} resizeMode="contain" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: '700', color: '#141210', marginBottom: 5 }}>{HAIR_DATA[expandedHairIdx].title}</Text>
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 4, marginBottom: 7 }}>
+                    {HAIR_DATA[expandedHairIdx].tags.map(tag => (
+                      <View key={tag} style={{ borderWidth: 1, borderColor: '#E2DDD7', borderRadius: 20, paddingHorizontal: 8, paddingVertical: 2, backgroundColor: '#fff' }}>
+                        <Text style={{ fontSize: 10, color: '#706A64' }}>{tag}</Text>
+                      </View>
+                    ))}
+                  </View>
+                  <Text style={s.subCardDesc}>{HAIR_DATA[expandedHairIdx].desc}</Text>
+                </View>
+              </View>
+            )}
+
+          </View>
+        )}
+
       </ScrollView>
+
+      {/* ══════════ KOMBİN SEÇME MODAL ══════════ */}
+      <Modal
+        visible={outfitModalOpen}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setOutfitModalOpen(false)}
+      >
+        <SafeAreaView style={{ flex: 1, backgroundColor: '#F5F2EE' }}>
+
+          {/* Modal header */}
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#E2DDD7' }}>
+            <Text style={{ fontSize: 18, fontWeight: '700', color: '#141210', letterSpacing: -0.3 }}>Kombin Seç</Text>
+            <TouchableOpacity onPress={() => setOutfitModalOpen(false)} style={{ padding: 4 }}>
+              <Text style={{ fontSize: 18, color: '#706A64', fontWeight: '600' }}>✕</Text>
+            </TouchableOpacity>
+          </View>
+
+          {outfits.length === 0 ? (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', gap: 10 }}>
+              <Text style={{ fontSize: 32 }}>👗</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#9E9690' }}>Henüz kombininiz yok</Text>
+              <Text style={{ fontSize: 12, color: '#C8C2BB', textAlign: 'center', paddingHorizontal: 40 }}>
+                Gardırop ekranından kombinlerinizi oluşturun
+              </Text>
+            </View>
+          ) : (
+            <ScrollView contentContainerStyle={{ padding: 16, gap: 12 }}>
+              {outfits.map(o => {
+                const isSelected = selectedOutfitId === o.id;
+                const clothItems = (o.outfit_items ?? [])
+                  .sort((a, b) => (a.layer_order ?? 0) - (b.layer_order ?? 0))
+                  .map(oi => oi.cloth)
+                  .filter(Boolean) as ClothingItem[];
+                return (
+                  <TouchableOpacity key={o.id}
+                    onPress={() => { setSelectedOutfitId(o.id); setOutfitModalOpen(false); }}
+                    style={{
+                      backgroundColor: '#fff', borderRadius: 16, borderWidth: 2,
+                      borderColor: isSelected ? PINK : '#E2DDD7',
+                      padding: 14,
+                      shadowColor: '#141210', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
+                    }}
+                    activeOpacity={0.75}
+                  >
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+
+                      {/* Clothing items — 4-slot grid */}
+                      <View style={{ width: 90, height: 90, flexDirection: 'row', flexWrap: 'wrap', gap: 3, borderRadius: 10, overflow: 'hidden', backgroundColor: '#F0EDE9', borderWidth: 1, borderColor: '#E2DDD7', padding: 4 }}>
+                        {[0,1,2,3].map(i => {
+                          const item = clothItems[i];
+                          return (
+                            <View key={i} style={{ width: '47%', height: '47%', borderRadius: 4, overflow: 'hidden', backgroundColor: '#E2DDD7' }}>
+                              {item?.image_url ? (
+                                <Image source={{ uri: item.image_url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                              ) : item ? (
+                                <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                                  <Text style={{ fontSize: 7, color: '#9E9690', textAlign: 'center', paddingHorizontal: 1 }} numberOfLines={2}>
+                                    {item.name ?? item.color_name ?? '—'}
+                                  </Text>
+                                </View>
+                              ) : (
+                                <View style={{ flex: 1, backgroundColor: '#EDE8E3' }} />
+                              )}
+                            </View>
+                          );
+                        })}
+                      </View>
+
+                      {/* Outfit info */}
+                      <View style={{ flex: 1 }}>
+                        <Text style={{ fontSize: 14, fontWeight: '700', color: '#141210', marginBottom: 3 }} numberOfLines={1}>
+                          {o.name ?? `Kombin #${o.id.slice(-4)}`}
+                        </Text>
+                        {(o.event || o.season) && (
+                          <Text style={{ fontSize: 11, color: '#9E9690' }}>
+                            {[o.event, o.season].filter(Boolean).join(' · ')}
+                          </Text>
+                        )}
+                      </View>
+
+                      {/* Check mark */}
+                      {isSelected && (
+                        <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: PINK, alignItems: 'center', justifyContent: 'center' }}>
+                          <Text style={{ color: '#fff', fontSize: 13, fontWeight: '800' }}>✓</Text>
+                        </View>
+                      )}
+
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          )}
+
+        </SafeAreaView>
+      </Modal>
+
     </SafeAreaView>
   );
 }
 
 // ─── Styles ──────────────────────────────────────────────────
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
-  loadingContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 20, paddingBottom: 40 },
+const s = StyleSheet.create({
+  container:     { flex: 1, backgroundColor: '#F5F2EE' },
+  loadingBox:    { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  scroll:        { flex: 1 },
+  scrollContent: { paddingHorizontal: 16, paddingTop: 8, paddingBottom: 110 },
+  section:       { gap: 12 },
 
-  header: { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 },
-  headerLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 2, color: '#bbb', marginBottom: 4 },
-  headerTitle: { fontSize: 28, fontWeight: '700', color: '#111', letterSpacing: -0.5 },
+  header:      { paddingHorizontal: 20, paddingTop: 16, paddingBottom: 20, backgroundColor: '#1C1917' },
+  headerLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 2.5, color: 'rgba(196,30,58,0.9)', marginBottom: 4 },
+  headerTitle: { fontSize: 26, fontWeight: '700', color: '#FFFFFF', letterSpacing: -0.5 },
 
-  tabBar: {
-    flexDirection: 'row',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e5e5e5',
-    marginHorizontal: 20,
-    marginBottom: 16,
-  },
-  tab: {
-    paddingVertical: 10,
-    paddingHorizontal: 4,
-    marginRight: 20,
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
-    marginBottom: -1,
-  },
-  tabActive: { borderBottomColor: '#111' },
-  tabText: { fontSize: 11, fontWeight: '700', letterSpacing: 1, color: '#bbb', textTransform: 'uppercase' },
-  tabTextActive: { color: '#111' },
+  tabBar:        { borderBottomWidth: 1, borderBottomColor: '#E2DDD7', backgroundColor: '#fff', flexGrow: 0 },
+  tabBarContent: { paddingHorizontal: 16 },
+  tab:           { paddingVertical: 12, paddingHorizontal: 4, marginRight: 16, borderBottomWidth: 2.5, borderBottomColor: 'transparent', marginBottom: -1 },
+  tabActive:     { borderBottomColor: '#C41E3A' },
+  tabText:       { fontSize: 10, fontWeight: '700', letterSpacing: 1, color: '#9E9690', textTransform: 'uppercase' },
+  tabTextActive: { color: '#141210' },
 
-  section: {},
   card: {
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-    backgroundColor: '#fff',
-    padding: 16,
-    marginBottom: 12,
-  },
-  cardTitle: { fontSize: 14, fontWeight: '700', color: '#111', marginBottom: 12 },
-  sectionLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1.5, color: '#bbb', textTransform: 'uppercase', marginBottom: 12 },
-  hint: { fontSize: 12, color: '#888', marginBottom: 16, lineHeight: 18 },
-
-  // Upload area
-  uploadArea: {
-    borderWidth: 2,
-    borderColor: '#e5e5e5',
-    borderStyle: 'dashed',
-    paddingVertical: 48,
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  uploadIcon: { fontSize: 32, marginBottom: 8 },
-  uploadText: { fontSize: 13, fontWeight: '600', color: '#888', marginBottom: 4 },
-  uploadHint: { fontSize: 11, color: '#bbb' },
-
-  facePreviewContainer: { alignItems: 'center', marginBottom: 16 },
-  facePreview: { width: 160, height: 160, marginBottom: 12 },
-
-  // Face analysis results
-  faceShapeRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
-  faceShapeTitle: { fontSize: 22, fontWeight: '700', color: '#111', marginBottom: 4 },
-  faceShapeDesc: { fontSize: 13, color: '#666', lineHeight: 18 },
-  confidenceBox: { alignItems: 'flex-end' },
-  confidenceLabel: { fontSize: 9, fontWeight: '700', letterSpacing: 1, color: '#bbb', marginBottom: 2 },
-  confidenceValue: { fontSize: 18, fontWeight: '700', color: '#111' },
-
-  hairstyleItem: {
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-    padding: 12,
-    marginBottom: 8,
-  },
-  hairstyleName: { fontSize: 13, fontWeight: '700', color: '#111', marginBottom: 4 },
-  hairstyleDesc: { fontSize: 12, color: '#666', marginBottom: 4 },
-  hairstyleSuitable: { fontSize: 10, fontWeight: '600', letterSpacing: 0.5, color: '#bbb', textTransform: 'uppercase' },
-
-  tipRow: { flexDirection: 'row', gap: 8, marginBottom: 8 },
-  tipCheck: { fontSize: 13, color: '#22c55e', fontWeight: '700', width: 16 },
-  tipText: { fontSize: 13, color: '#444', flex: 1, lineHeight: 18 },
-
-  // Profile form
-  fieldGroup: { marginBottom: 20 },
-  fieldLabel: { fontSize: 11, fontWeight: '600', color: '#888', marginBottom: 10 },
-
-  faceShapeGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 8,
-  },
-  faceShapeChip: {
-    width: '30%',
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-    paddingVertical: 12,
-    alignItems: 'center',
-    gap: 4,
-  },
-  faceShapeIcon: { fontSize: 18 },
-
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  skinToneChip: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-    paddingHorizontal: 10,
-    paddingVertical: 7,
-  },
-  skinDot: { width: 10, height: 10 },
-  flexChip: {
-    flex: 1,
-    minWidth: '22%',
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-    paddingVertical: 9,
-    alignItems: 'center',
+    backgroundColor: '#fff', borderRadius: 14, borderWidth: 1, borderColor: '#E2DDD7',
+    padding: 18, marginBottom: 12,
+    shadowColor: '#141210', shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.05, shadowRadius: 6, elevation: 2,
   },
 
-  chipSelected: { borderColor: '#111', backgroundColor: '#111' },
-  chipText: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, color: '#666', textTransform: 'uppercase' },
-  chipTextSmall: { fontSize: 10, fontWeight: '600', color: '#666' },
-  chipTextSelected: { color: '#fff' },
+  sectionLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1.5, color: '#9E9690', textTransform: 'uppercase', marginBottom: 12 },
+  hint:         { fontSize: 12, color: '#706A64', marginBottom: 14, lineHeight: 18 },
+  fieldLabel:   { fontSize: 11, fontWeight: '700', color: '#706A64', letterSpacing: 0.5, marginBottom: 10 },
 
-  // Buttons
-  btnPrimary: {
-    backgroundColor: '#111',
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginTop: 8,
-  },
-  btnPrimaryText: { fontSize: 13, fontWeight: '700', color: '#fff', letterSpacing: 0.5 },
-  btnBrand: {
-    backgroundColor: '#111',
-    paddingVertical: 14,
-    alignItems: 'center',
-    marginBottom: 12,
-  },
+  subCardDesc:  { fontSize: 12, color: '#706A64', lineHeight: 17 },
+
   btnBrandText: { fontSize: 13, fontWeight: '700', color: '#fff', letterSpacing: 0.5 },
-  btnOutline: {
-    borderWidth: 1,
-    borderColor: '#e5e5e5',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-    alignItems: 'center',
-  },
-  btnOutlineText: { fontSize: 12, fontWeight: '600', color: '#111' },
-  btnDisabled: { opacity: 0.6 },
 
-  errorBox: {
-    borderWidth: 1,
-    borderColor: '#fde68a',
-    backgroundColor: '#fffbeb',
-    padding: 12,
-    marginBottom: 12,
-  },
-  errorText: { fontSize: 13, color: '#b45309' },
-
-  aiItem: { marginBottom: 10 },
-  aiItemLabel: { fontSize: 10, fontWeight: '700', letterSpacing: 1, color: '#bbb', marginBottom: 2, textTransform: 'uppercase' },
-  aiItemText: { fontSize: 13, color: '#444', lineHeight: 18 },
+  errorBox:  { borderWidth: 1, borderColor: 'rgba(196,30,58,0.3)', borderRadius: 10, backgroundColor: 'rgba(196,30,58,0.06)', padding: 12, marginBottom: 8 },
+  errorText: { fontSize: 13, color: '#C41E3A' },
 });
