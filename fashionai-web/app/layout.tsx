@@ -1,4 +1,4 @@
-import type { Metadata } from 'next';
+import type { Metadata, Viewport } from 'next';
 import { Playfair_Display, Cormorant_Garamond, Inter } from 'next/font/google';
 import { Providers } from '@/components/Providers';
 import './globals.css';
@@ -22,6 +22,11 @@ const inter = Inter({
   subsets: ['latin'],
   weight: ['300', '400', '500', '600', '700'],
 });
+
+export const viewport: Viewport = {
+  width: 'device-width',
+  initialScale: 1,
+};
 
 export const metadata: Metadata = {
   title: 'FashionAI — Your AI-Powered Personal Stylist',

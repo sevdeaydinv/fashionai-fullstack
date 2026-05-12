@@ -178,11 +178,14 @@ export default function RegisterPage() {
           kabul etmiş olursunuz.
         </p>
 
-        <button type="submit" disabled={isSubmitting}
+        <button
+          type="submit"
+          disabled={isSubmitting}
           className="w-full rounded-xl py-3.5 text-sm font-semibold text-white transition-all disabled:opacity-50 mt-1"
           style={{
             background: 'linear-gradient(135deg, #7a0020 0%, #C41E3A 60%, #e8294a 100%)',
             boxShadow: '0 4px 20px rgba(196,30,58,0.4)',
+            transition: 'box-shadow 0.3s, transform 0.3s',
           }}
           onMouseEnter={e => { e.currentTarget.style.boxShadow = '0 4px 32px rgba(196,30,58,0.7)'; }}
           onMouseLeave={e => { e.currentTarget.style.boxShadow = '0 4px 20px rgba(196,30,58,0.4)'; }}

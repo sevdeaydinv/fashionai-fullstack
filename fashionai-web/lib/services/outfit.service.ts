@@ -191,11 +191,14 @@ export const OutfitService = {
     outfitItemId: string,
     newClothId: string
   ): Promise<{ error: string | null }> {
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from('outfit_items')
       .update({ cloth_id: newClothId })
-      .eq('id', outfitItemId);
+      .eq('id', outfitItemId)
+      .select();
 
-    return { error: error?.message ?? null };
+    if (error) return { error: error.message };
+    if (!data || data.length === 0) return { error: 'Güncelleme başarısız — izin reddedildi.' };
+    return { error: null };
   },
 };

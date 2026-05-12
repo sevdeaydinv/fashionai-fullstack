@@ -7,22 +7,22 @@ import { useWardrobe } from '@/lib/hooks/useWardrobe';
 import { ClothingCard } from '@/components/wardrobe/ClothingCard';
 import { ClothingForm } from '@/components/wardrobe/ClothingForm';
 import { WardrobeService } from '@/lib/services/wardrobe.service';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 import type { ClothingItem, ClothingItemPayload, WardrobeFilters } from '@/types/wardrobe.types';
 import type { ClothingCategory } from '@/types/common.types';
 
-const CATEGORY_LABELS: Record<string, string> = {
-  shirt: 'Gömlek', tshirt: 'T-Shirt', blouse: 'Bluz', sweater: 'Kazak',
-  pants: 'Pantolon', jeans: 'Kot', skirt: 'Etek', shorts: 'Şort',
-  jacket: 'Ceket', coat: 'Mont', dress: 'Elbise',
-  shoes: 'Ayakkabı', sneakers: 'Sneaker', boots: 'Bot', heels: 'Topuklu',
-  sweatpants: 'Eşofman Altı',
-  bag: 'Günlük Çanta', sport_bag: 'Spor Çanta', backpack: 'Sırt Çantası', clutch: 'Davet Çantası',
-  hat: 'Şapka',
-  accessory: 'Aksesuar',
+const sectionLabelStyle: React.CSSProperties = {
+  color: '#9E9690',
+  fontSize: '0.6rem',
+  letterSpacing: '0.2em',
+  textTransform: 'uppercase',
+  fontWeight: 700,
 };
 
 export default function WardrobePage() {
   const supabase = createClient();
+  const { t } = useLanguage();
+  const CATEGORY_LABELS: Record<string, string> = t.wardrobe.categoryLabels;
 
   // Get current user
   const { data: userData } = useQuery({
@@ -87,9 +87,9 @@ export default function WardrobePage() {
         await updateItem.mutateAsync({ id: editingItem.id, updates: { ...payload, image_url: imageUrl } });
       } else {
         // Add — image required
-        if (!imageFile) { alert('Lütfen bir fotoğraf seçin.'); return; }
+        if (!imageFile) { alert(t.wardrobe.photoRequired); return; }
         const { url, error: uploadErr } = await WardrobeService.uploadImage(userId, imageFile);
-        if (uploadErr || !url) { alert('Fotoğraf yüklenemedi.'); return; }
+        if (uploadErr || !url) { alert(t.wardrobe.uploadFailed); return; }
         await addItem.mutateAsync({ ...payload, image_url: url });
       }
       setShowForm(false);
@@ -125,35 +125,60 @@ export default function WardrobePage() {
       {/* Header */}
       <div className="flex items-end justify-between mb-8">
         <div>
-          <p className="section-label mb-1">My Collection</p>
-          <h1 className="editorial-heading text-3xl text-ink-900">Wardrobe</h1>
-          <p className="text-sm text-ink-400 mt-1">{clothes.length} items</p>
+          <p style={sectionLabelStyle} className="mb-1">{t.wardrobe.sectionLabel}</p>
+          <h1 style={{ color: '#141210', fontFamily: 'serif', fontWeight: 700, fontSize: '1.875rem' }}>{t.wardrobe.title}</h1>
+          <p style={{ color: '#706A64', fontSize: '0.875rem', marginTop: 4 }}>{clothes.length} {t.wardrobe.itemsCount}</p>
         </div>
         <button
           onClick={() => { setEditingItem(null); setShowForm(true); }}
-          className="btn-primary"
+          className="flex items-center gap-2"
+          style={{
+            background: 'linear-gradient(135deg, #7a0020 0%, #C41E3A 60%, #e8294a 100%)',
+            borderRadius: 12,
+            boxShadow: '0 4px 20px rgba(196,30,58,0.4)',
+            border: 'none',
+            color: 'white',
+            fontWeight: 600,
+            fontSize: '0.8rem',
+            padding: '10px 18px',
+            cursor: 'pointer',
+            letterSpacing: '0.05em',
+          }}
         >
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3.5 w-3.5">
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
           </svg>
-          Add Item
+          {t.wardrobe.addItem}
         </button>
       </div>
 
       {/* Filters */}
       <div className="mb-6">
-
         {/* Search */}
         <div className="relative mb-4">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-ink-400">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4" style={{ color: '#9E9690' }}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803a7.5 7.5 0 0010.607 0z" />
           </svg>
           <input
             type="text"
-            placeholder="Search by name, brand or color..."
+            placeholder={t.wardrobe.searchPlaceholder}
             value={filters.search ?? ''}
             onChange={e => setFilters(f => ({ ...f, search: e.target.value || undefined }))}
-            className="w-full border border-ink-200 bg-white pl-9 pr-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-300 focus:outline-none focus:border-ink-400 transition-colors"
+            style={{
+              width: '100%',
+              background: '#FFFFFF',
+              border: '1px solid #E2DDD7',
+              borderRadius: 12,
+              paddingLeft: 36,
+              paddingRight: 12,
+              paddingTop: 10,
+              paddingBottom: 10,
+              color: '#141210',
+              fontSize: '0.875rem',
+              outline: 'none',
+            }}
+            onFocus={(e) => { e.target.style.borderColor = 'rgba(196,30,58,0.5)'; e.target.style.boxShadow = '0 0 0 3px rgba(196,30,58,0.1)'; }}
+            onBlur={(e) => { e.target.style.borderColor = '#E2DDD7'; e.target.style.boxShadow = 'none'; }}
           />
         </div>
 
@@ -161,30 +186,45 @@ export default function WardrobePage() {
         <div className="flex gap-2 overflow-x-auto pb-1">
           <button
             onClick={() => setFilters(f => ({ ...f, favorites_only: f.favorites_only ? undefined : true }))}
-            className={`flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-[0.65rem] font-semibold tracking-wider uppercase border transition-colors ${
-              filters.favorites_only ? 'bg-brand-500 text-white border-brand-500' : 'bg-white text-ink-500 border-ink-200 hover:border-ink-400'
-            }`}
+            className="flex shrink-0 items-center gap-1.5 px-3 py-1.5 text-[0.65rem] font-semibold tracking-wider uppercase transition-colors"
+            style={{
+              borderRadius: 8,
+              border: filters.favorites_only ? '1px solid #C41E3A' : '1px solid #E2DDD7',
+              background: filters.favorites_only ? '#C41E3A' : '#F5F2EE',
+              color: filters.favorites_only ? 'white' : '#706A64',
+              cursor: 'pointer',
+            }}
           >
-            <svg viewBox="0 0 24 24" className={`h-3 w-3 ${filters.favorites_only ? 'fill-white' : 'fill-none'}`} stroke="currentColor" strokeWidth={2}>
+            <svg viewBox="0 0 24 24" className="h-3 w-3" style={{ fill: filters.favorites_only ? 'white' : 'none' }} stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
             </svg>
-            Favorites
+            {t.wardrobe.favorites}
           </button>
           <button
             onClick={() => setFilters(f => ({ ...f, category: undefined }))}
-            className={`shrink-0 px-3 py-1.5 text-[0.65rem] font-semibold tracking-wider uppercase border transition-colors ${
-              !filters.category ? 'bg-ink-900 text-white border-ink-900' : 'bg-white text-ink-500 border-ink-200 hover:border-ink-400'
-            }`}
+            className="shrink-0 px-3 py-1.5 text-[0.65rem] font-semibold tracking-wider uppercase transition-colors"
+            style={{
+              borderRadius: 8,
+              border: !filters.category ? '1px solid rgba(196,30,58,0.3)' : '1px solid #E2DDD7',
+              background: !filters.category ? 'rgba(196,30,58,0.1)' : '#F5F2EE',
+              color: !filters.category ? '#C41E3A' : '#706A64',
+              cursor: 'pointer',
+            }}
           >
-            All ({clothes.length})
+            {t.wardrobe.all} ({clothes.length})
           </button>
           {Object.entries(categoryCounts).map(([cat, count]) => (
             <button
               key={cat}
               onClick={() => setFilters(f => ({ ...f, category: f.category === cat ? undefined : cat as ClothingCategory }))}
-              className={`shrink-0 px-3 py-1.5 text-[0.65rem] font-semibold tracking-wider uppercase border transition-colors ${
-                filters.category === cat ? 'bg-ink-900 text-white border-ink-900' : 'bg-white text-ink-500 border-ink-200 hover:border-ink-400'
-              }`}
+              className="shrink-0 px-3 py-1.5 text-[0.65rem] font-semibold tracking-wider uppercase transition-colors"
+              style={{
+                borderRadius: 8,
+                border: filters.category === cat ? '1px solid rgba(196,30,58,0.3)' : '1px solid #E2DDD7',
+                background: filters.category === cat ? 'rgba(196,30,58,0.1)' : '#F5F2EE',
+                color: filters.category === cat ? '#C41E3A' : '#706A64',
+                cursor: 'pointer',
+              }}
             >
               {CATEGORY_LABELS[cat] ?? cat} ({count})
             </button>
@@ -197,24 +237,34 @@ export default function WardrobePage() {
         {isLoading ? (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
             {Array.from({ length: 8 }).map((_, i) => (
-              <div key={i} className="aspect-square bg-ink-100 animate-pulse" />
+              <div key={i} className="aspect-square animate-pulse" style={{ background: '#EAE6E1', borderRadius: 12 }} />
             ))}
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center">
-            <div className="w-16 h-px bg-ink-300 mb-8" />
-            <p className="editorial-heading text-xl text-ink-400 mb-2">
-              {clothes.length === 0 ? 'Your wardrobe is empty' : 'No items found'}
+            <div style={{ width: 64, height: 1, background: '#E2DDD7', marginBottom: 32 }} />
+            <p style={{ color: '#9E9690', fontFamily: 'serif', fontWeight: 700, fontSize: '1.25rem', marginBottom: 8 }}>
+              {clothes.length === 0 ? t.wardrobe.emptyTitle : t.wardrobe.noItemsFound}
             </p>
-            <p className="text-xs text-ink-400 mb-8">
-              {clothes.length === 0 ? 'Start by adding your first clothing item.' : 'Try clearing some filters.'}
+            <p style={{ color: '#9E9690', fontSize: '0.75rem', marginBottom: 32 }}>
+              {clothes.length === 0 ? t.wardrobe.emptyNoFilter : t.wardrobe.emptyWithFilter}
             </p>
             {clothes.length === 0 && (
               <button
                 onClick={() => { setEditingItem(null); setShowForm(true); }}
-                className="btn-primary"
+                className="flex items-center gap-2"
+                style={{
+                  background: 'linear-gradient(135deg, #7a0020 0%, #C41E3A 60%, #e8294a 100%)',
+                  borderRadius: 12,
+                  border: 'none',
+                  color: 'white',
+                  fontWeight: 600,
+                  fontSize: '0.8rem',
+                  padding: '10px 18px',
+                  cursor: 'pointer',
+                }}
               >
-                Add First Item
+                {t.wardrobe.addFirstItem}
               </button>
             )}
           </div>
@@ -245,24 +295,45 @@ export default function WardrobePage() {
 
       {/* Delete confirm modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm bg-white p-8 shadow-2xl">
-            <p className="section-label mb-3">Confirm Delete</p>
-            <h3 className="editorial-heading text-xl text-ink-900 mb-2">{deleteConfirm.name}</h3>
-            <p className="text-sm text-ink-500 mb-6">This item will be permanently removed from your wardrobe.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+          <div className="w-full max-w-sm p-8" style={{ background: '#FFFFFF', border: '1px solid #E2DDD7', borderRadius: 16 }}>
+            <p style={sectionLabelStyle} className="mb-3">{t.wardrobe.confirmDelete}</p>
+            <h3 style={{ color: '#141210', fontFamily: 'serif', fontWeight: 700, fontSize: '1.25rem', marginBottom: 8 }}>{deleteConfirm.name}</h3>
+            <p style={{ color: '#706A64', fontSize: '0.875rem', marginBottom: 24 }}>{t.wardrobe.deleteItemConfirm}</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="btn-outline flex-1"
+                style={{
+                  flex: 1,
+                  background: '#F5F2EE',
+                  border: '1px solid #E2DDD7',
+                  borderRadius: 12,
+                  color: '#141210',
+                  fontWeight: 500,
+                  fontSize: '0.875rem',
+                  padding: '10px 16px',
+                  cursor: 'pointer',
+                }}
               >
-                Cancel
+                {t.wardrobe.cancel}
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
                 disabled={deleteItem.isPending}
-                className="btn-brand flex-1 disabled:opacity-50"
+                style={{
+                  flex: 1,
+                  background: 'linear-gradient(135deg, #7a0020 0%, #C41E3A 60%, #e8294a 100%)',
+                  borderRadius: 12,
+                  border: 'none',
+                  color: 'white',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  padding: '10px 16px',
+                  cursor: deleteItem.isPending ? 'not-allowed' : 'pointer',
+                  opacity: deleteItem.isPending ? 0.6 : 1,
+                }}
               >
-                {deleteItem.isPending ? 'Deleting...' : 'Delete'}
+                {deleteItem.isPending ? t.wardrobe.deleting : t.wardrobe.delete}
               </button>
             </div>
           </div>

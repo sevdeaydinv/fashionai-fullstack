@@ -6,8 +6,7 @@ import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/client';
-import { Button } from '@/components/ui/Button';
-import { Input } from '@/components/ui/Input';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 
 // ─── Schemas ────────────────────────────────────────────────
 const step1Schema = z.object({
@@ -30,27 +29,55 @@ type Step1Data = z.infer<typeof step1Schema>;
 type Step2Data = z.infer<typeof step2Schema>;
 
 const STYLE_OPTIONS = [
-  { value: 'casual',      label: 'Casual',      emoji: '👕' },
-  { value: 'formal',      label: 'Formal',      emoji: '👔' },
-  { value: 'sport',       label: 'Sportif',     emoji: '🏃' },
-  { value: 'streetwear',  label: 'Streetwear',  emoji: '🧢' },
-  { value: 'elegant',     label: 'Elegant',     emoji: '✨' },
-  { value: 'bohemian',    label: 'Bohemian',    emoji: '🌸' },
+  { value: 'casual',      label: 'Casual' },
+  { value: 'formal',      label: 'Formal' },
+  { value: 'sport',       label: 'Sportif' },
+  { value: 'streetwear',  label: 'Streetwear' },
+  { value: 'elegant',     label: 'Elegant' },
+  { value: 'bohemian',    label: 'Bohemian' },
 ] as const;
 
 type StyleValue = typeof STYLE_OPTIONS[number]['value'];
 
-const GENDER_OPTIONS = [
-  { value: 'female',           label: 'Kadın' },
-  { value: 'male',             label: 'Erkek' },
-  { value: 'non_binary',       label: 'Non-binary' },
-  { value: 'prefer_not_to_say', label: 'Belirtmek istemiyorum' },
-] as const;
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  background: 'rgba(255,255,255,0.07)',
+  border: '1px solid rgba(255,255,255,0.12)',
+  borderRadius: 12,
+  padding: '12px 16px',
+  color: 'white',
+  fontSize: '0.9rem',
+  outline: 'none',
+};
+
+const labelStyle: React.CSSProperties = {
+  display: 'block',
+  color: 'rgba(255,255,255,0.7)',
+  fontSize: '0.8rem',
+  fontWeight: 500,
+  marginBottom: 6,
+};
 
 // ─── Component ──────────────────────────────────────────────
 export default function OnboardingPage() {
   const router = useRouter();
   const supabase = createClient();
+  const { t } = useLanguage();
+
+  const GENDER_OPTIONS = [
+    { value: 'female'           as const, label: t.onboarding.genderOptions.female },
+    { value: 'male'             as const, label: t.onboarding.genderOptions.male },
+    { value: 'non_binary'       as const, label: t.onboarding.genderOptions.non_binary },
+    { value: 'prefer_not_to_say' as const, label: t.onboarding.genderOptions.prefer_not_to_say },
+  ];
+
+  const MEASUREMENT_FIELDS: { label: string; field: keyof Step2Data; placeholder: string }[] = [
+    { label: t.onboarding.measurementFields.height_cm, field: 'height_cm', placeholder: '168' },
+    { label: t.onboarding.measurementFields.weight_kg, field: 'weight_kg', placeholder: '62' },
+    { label: t.onboarding.measurementFields.waist_cm,  field: 'waist_cm',  placeholder: '70' },
+    { label: t.onboarding.measurementFields.hip_cm,    field: 'hip_cm',    placeholder: '95' },
+    { label: t.onboarding.measurementFields.shoe_size, field: 'shoe_size', placeholder: '38' },
+  ];
 
   const [step, setStep] = useState(1);
   const [step1Data, setStep1Data] = useState<Step1Data | null>(null);
@@ -87,7 +114,7 @@ export default function OnboardingPage() {
   // ── Final submit
   const onFinish = async () => {
     if (selectedStyles.length === 0) {
-      setError('Lütfen en az bir stil seçin.');
+      setError(t.onboarding.errorSelectStyle);
       return;
     }
     setError(null);
@@ -95,7 +122,7 @@ export default function OnboardingPage() {
 
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('Oturum bulunamadı');
+      if (!user) throw new Error(t.onboarding.sessionNotFound);
 
       // Upsert profile
       const { error: profileError } = await supabase
@@ -131,21 +158,25 @@ export default function OnboardingPage() {
       router.push('/dashboard');
       router.refresh();
     } catch (e: unknown) {
-      setError(e instanceof Error ? e.message : 'Bir hata oluştu, tekrar dene.');
+      setError(e instanceof Error ? e.message : t.onboarding.genericError);
     } finally {
       setSubmitting(false);
     }
   };
 
   // ─── Progress bar ─────────────────────────────────────────
-  const steps = ['Kişisel Bilgiler', 'Ölçüler', 'Stil Tercihleri'];
+  const steps = [t.onboarding.step1Label, t.onboarding.step2Label, t.onboarding.step3Label];
 
   return (
     <div className="w-full max-w-lg">
       {/* Header */}
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-ink-900 mb-1">Hesabını Kişiselleştir</h1>
-        <p className="text-sm text-ink-500">Sana en iyi önerileri sunabilmemiz için birkaç bilgiye ihtiyacımız var.</p>
+        <h1 style={{ color: 'rgba(255,255,255,0.9)', fontSize: '1.5rem', fontWeight: 600, marginBottom: 4 }}>
+          {t.onboarding.title}
+        </h1>
+        <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem' }}>
+          {t.onboarding.subtitle}
+        </p>
       </div>
 
       {/* Step indicators */}
@@ -158,29 +189,41 @@ export default function OnboardingPage() {
             <div key={label} className="flex items-center gap-2 flex-1">
               <div className="flex items-center gap-2">
                 <span
-                  className={[
-                    'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
-                    isDone
-                      ? 'bg-emerald-500 text-white'
+                  className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold"
+                  style={{
+                    background: isDone
+                      ? 'rgba(196,30,58,0.3)'
                       : isActive
-                      ? 'bg-brand-600 text-white'
-                      : 'border-2 border-ink-200 text-ink-400',
-                  ].join(' ')}
+                      ? '#C41E3A'
+                      : 'transparent',
+                    border: isDone
+                      ? '1px solid rgba(196,30,58,0.5)'
+                      : isActive
+                      ? 'none'
+                      : '2px solid rgba(255,255,255,0.2)',
+                    color: (isDone || isActive) ? 'white' : 'rgba(255,255,255,0.4)',
+                  }}
                 >
                   {isDone ? (
-                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <svg style={{ width: 14, height: 14 }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
                   ) : (
                     idx
                   )}
                 </span>
-                <span className={`text-xs font-medium hidden sm:block ${isActive ? 'text-ink-900' : 'text-ink-400'}`}>
+                <span
+                  className="text-xs font-medium hidden sm:block"
+                  style={{ color: isActive ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.35)' }}
+                >
                   {label}
                 </span>
               </div>
               {i < steps.length - 1 && (
-                <div className={`flex-1 h-px mx-2 ${isDone ? 'bg-emerald-300' : 'bg-ink-200'}`} />
+                <div
+                  className="flex-1 h-px mx-2"
+                  style={{ background: isDone ? 'rgba(196,30,58,0.3)' : 'rgba(255,255,255,0.1)' }}
+                />
               )}
             </div>
           );
@@ -190,26 +233,41 @@ export default function OnboardingPage() {
       {/* ── STEP 1: Kişisel Bilgiler ── */}
       {step === 1 && (
         <form onSubmit={form1.handleSubmit(onStep1Submit)} className="flex flex-col gap-5">
-          <Input
-            label="Ad Soyad"
-            type="text"
-            placeholder="Ada Yıldız"
-            error={form1.formState.errors.full_name?.message}
-            {...form1.register('full_name')}
-          />
+          <div>
+            <label style={labelStyle}>{t.onboarding.fullNameLabel}</label>
+            <input
+              type="text"
+              placeholder="Ada Yıldız"
+              style={inputStyle}
+              onFocus={(e) => { e.target.style.borderColor = 'rgba(196,30,58,0.5)'; e.target.style.boxShadow = '0 0 0 3px rgba(196,30,58,0.1)'; }}
+              {...form1.register('full_name')}
+            />
+            {form1.formState.errors.full_name && (
+              <p style={{ color: '#ff6070', fontSize: '0.75rem', marginTop: 4 }}>{form1.formState.errors.full_name.message}</p>
+            )}
+          </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-medium text-ink-700">Cinsiyet</label>
+            <label style={labelStyle}>{t.onboarding.genderLabel}</label>
             <div className="grid grid-cols-2 gap-2">
               {GENDER_OPTIONS.map((opt) => (
                 <label
                   key={opt.value}
-                  className={[
-                    'flex items-center gap-2.5 rounded-xl border px-4 py-3 cursor-pointer text-sm transition-colors',
-                    form1.watch('gender') === opt.value
-                      ? 'border-brand-500 bg-brand-50 text-brand-700 font-medium'
-                      : 'border-ink-200 text-ink-600 hover:border-ink-300',
-                  ].join(' ')}
+                  className="flex items-center gap-2.5 cursor-pointer text-sm transition-all"
+                  style={{
+                    borderRadius: 12,
+                    padding: '12px 16px',
+                    border: form1.watch('gender') === opt.value
+                      ? '1px solid rgba(196,30,58,0.3)'
+                      : '1px solid rgba(255,255,255,0.12)',
+                    background: form1.watch('gender') === opt.value
+                      ? 'rgba(196,30,58,0.15)'
+                      : 'rgba(255,255,255,0.07)',
+                    color: form1.watch('gender') === opt.value
+                      ? '#ff6080'
+                      : 'rgba(255,255,255,0.7)',
+                    fontWeight: form1.watch('gender') === opt.value ? 500 : 400,
+                  }}
                 >
                   <input
                     type="radio"
@@ -222,81 +280,104 @@ export default function OnboardingPage() {
               ))}
             </div>
             {form1.formState.errors.gender && (
-              <p className="text-xs text-red-500">{form1.formState.errors.gender.message}</p>
+              <p style={{ color: '#ff6070', fontSize: '0.75rem', marginTop: 4 }}>{form1.formState.errors.gender.message}</p>
             )}
           </div>
 
-          <Input
-            label="Doğum Tarihi"
-            type="date"
-            error={form1.formState.errors.birth_date?.message}
-            {...form1.register('birth_date')}
-          />
+          <div>
+            <label style={labelStyle}>{t.onboarding.birthDateLabel}</label>
+            <input
+              type="date"
+              style={{ ...inputStyle, colorScheme: 'dark' }}
+              onFocus={(e) => { e.target.style.borderColor = 'rgba(196,30,58,0.5)'; e.target.style.boxShadow = '0 0 0 3px rgba(196,30,58,0.1)'; }}
+              {...form1.register('birth_date')}
+            />
+            {form1.formState.errors.birth_date && (
+              <p style={{ color: '#ff6070', fontSize: '0.75rem', marginTop: 4 }}>{form1.formState.errors.birth_date.message}</p>
+            )}
+          </div>
 
-          <Button type="submit" size="lg" className="w-full mt-2">
-            Devam Et →
-          </Button>
+          <button
+            type="submit"
+            style={{
+              width: '100%',
+              background: 'linear-gradient(135deg, #7a0020 0%, #C41E3A 60%, #e8294a 100%)',
+              borderRadius: 12,
+              boxShadow: '0 4px 20px rgba(196,30,58,0.4)',
+              border: 'none',
+              color: 'white',
+              fontWeight: 600,
+              fontSize: '0.9rem',
+              padding: '13px 24px',
+              cursor: 'pointer',
+              marginTop: 8,
+            }}
+          >
+            {t.onboarding.continueBtn}
+          </button>
         </form>
       )}
 
       {/* ── STEP 2: Vücut Ölçüleri ── */}
       {step === 2 && (
         <form onSubmit={form2.handleSubmit(onStep2Submit)} className="flex flex-col gap-5">
-          <p className="text-sm text-ink-500 -mt-2">
-            Ölçüler tamamen opsiyoneldir, dilersen atlayabilirsin.
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem', marginTop: -8 }}>
+            {t.onboarding.measurementsOptional}
           </p>
 
           <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Boy (cm)"
-              type="number"
-              placeholder="168"
-              error={form2.formState.errors.height_cm?.message}
-              {...form2.register('height_cm', { valueAsNumber: true })}
-            />
-            <Input
-              label="Kilo (kg)"
-              type="number"
-              placeholder="62"
-              error={form2.formState.errors.weight_kg?.message}
-              {...form2.register('weight_kg', { valueAsNumber: true })}
-            />
-            <Input
-              label="Bel (cm)"
-              type="number"
-              placeholder="70"
-              error={form2.formState.errors.waist_cm?.message}
-              {...form2.register('waist_cm', { valueAsNumber: true })}
-            />
-            <Input
-              label="Kalça (cm)"
-              type="number"
-              placeholder="95"
-              error={form2.formState.errors.hip_cm?.message}
-              {...form2.register('hip_cm', { valueAsNumber: true })}
-            />
-            <Input
-              label="Ayak Numarası (EU)"
-              type="number"
-              placeholder="38"
-              error={form2.formState.errors.shoe_size?.message}
-              {...form2.register('shoe_size', { valueAsNumber: true })}
-            />
+            {MEASUREMENT_FIELDS.map(({ label, field, placeholder }) => (
+              <div key={field}>
+                <label style={labelStyle}>{label}</label>
+                <input
+                  type="number"
+                  placeholder={placeholder}
+                  style={inputStyle}
+                  onFocus={(e) => { e.target.style.borderColor = 'rgba(196,30,58,0.5)'; e.target.style.boxShadow = '0 0 0 3px rgba(196,30,58,0.1)'; }}
+                  {...form2.register(field, { valueAsNumber: true })}
+                />
+                {form2.formState.errors[field] && (
+                  <p style={{ color: '#ff6070', fontSize: '0.75rem', marginTop: 4 }}>{form2.formState.errors[field]?.message}</p>
+                )}
+              </div>
+            ))}
           </div>
 
           <div className="flex gap-3 mt-2">
-            <Button
+            <button
               type="button"
-              variant="secondary"
-              size="lg"
-              className="flex-1"
               onClick={() => setStep(1)}
+              style={{
+                flex: 1,
+                background: 'rgba(255,255,255,0.07)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: 12,
+                color: 'rgba(255,255,255,0.8)',
+                fontWeight: 500,
+                fontSize: '0.9rem',
+                padding: '13px 24px',
+                cursor: 'pointer',
+              }}
             >
-              ← Geri
-            </Button>
-            <Button type="submit" size="lg" className="flex-1">
-              Devam Et →
-            </Button>
+              {t.onboarding.backBtn}
+            </button>
+            <button
+              type="submit"
+              style={{
+                flex: 1,
+                background: 'linear-gradient(135deg, #7a0020 0%, #C41E3A 60%, #e8294a 100%)',
+                borderRadius: 12,
+                boxShadow: '0 4px 20px rgba(196,30,58,0.4)',
+                border: 'none',
+                color: 'white',
+                fontWeight: 600,
+                fontSize: '0.9rem',
+                padding: '13px 24px',
+                cursor: 'pointer',
+              }}
+            >
+              {t.onboarding.continueBtn}
+            </button>
           </div>
         </form>
       )}
@@ -304,8 +385,8 @@ export default function OnboardingPage() {
       {/* ── STEP 3: Stil Tercihleri ── */}
       {step === 3 && (
         <div className="flex flex-col gap-5">
-          <p className="text-sm text-ink-500 -mt-2">
-            Sana en uygun kombinleri önerebilmemiz için tercih ettiğin stilleri seç.
+          <p style={{ color: 'rgba(255,255,255,0.5)', fontSize: '0.875rem', marginTop: -8 }}>
+            {t.onboarding.styleDesc}
           </p>
 
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -316,18 +397,26 @@ export default function OnboardingPage() {
                   key={opt.value}
                   type="button"
                   onClick={() => toggleStyle(opt.value)}
-                  className={[
-                    'flex flex-col items-center gap-2 rounded-2xl border-2 p-4 text-sm font-medium transition-all',
-                    selected
-                      ? 'border-brand-500 bg-brand-50 text-brand-700'
-                      : 'border-ink-200 text-ink-600 hover:border-ink-300 hover:bg-ink-50',
-                  ].join(' ')}
+                  className="flex flex-col items-center gap-2 p-4 text-sm font-medium transition-all"
+                  style={{
+                    borderRadius: 16,
+                    border: selected
+                      ? '1px solid rgba(196,30,58,0.3)'
+                      : '1px solid rgba(255,255,255,0.12)',
+                    background: selected
+                      ? 'rgba(196,30,58,0.15)'
+                      : 'rgba(255,255,255,0.07)',
+                    color: selected ? '#ff6080' : 'rgba(255,255,255,0.7)',
+                    cursor: 'pointer',
+                  }}
                 >
-                  <span className="text-2xl">{opt.emoji}</span>
                   {opt.label}
                   {selected && (
-                    <span className="flex h-4 w-4 items-center justify-center rounded-full bg-brand-600">
-                      <svg className="h-2.5 w-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <span
+                      className="flex h-4 w-4 items-center justify-center rounded-full"
+                      style={{ background: '#C41E3A' }}
+                    >
+                      <svg style={{ width: 10, height: 10, color: 'white' }} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                       </svg>
                     </span>
@@ -338,30 +427,56 @@ export default function OnboardingPage() {
           </div>
 
           {error && (
-            <div className="rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
+            <div style={{
+              background: 'rgba(196,30,58,0.1)',
+              border: '1px solid rgba(196,30,58,0.3)',
+              borderRadius: 12,
+              padding: '12px 16px',
+              color: '#ff6070',
+              fontSize: '0.875rem',
+            }}>
               {error}
             </div>
           )}
 
           <div className="flex gap-3 mt-2">
-            <Button
+            <button
               type="button"
-              variant="secondary"
-              size="lg"
-              className="flex-1"
               onClick={() => setStep(2)}
+              style={{
+                flex: 1,
+                background: 'rgba(255,255,255,0.07)',
+                border: '1px solid rgba(255,255,255,0.12)',
+                borderRadius: 12,
+                color: 'rgba(255,255,255,0.8)',
+                fontWeight: 500,
+                fontSize: '0.9rem',
+                padding: '13px 24px',
+                cursor: 'pointer',
+              }}
             >
-              ← Geri
-            </Button>
-            <Button
+              {t.onboarding.backBtn}
+            </button>
+            <button
               type="button"
-              size="lg"
-              className="flex-1"
-              loading={submitting}
               onClick={onFinish}
+              disabled={submitting}
+              style={{
+                flex: 1,
+                background: 'linear-gradient(135deg, #7a0020 0%, #C41E3A 60%, #e8294a 100%)',
+                borderRadius: 12,
+                boxShadow: '0 4px 20px rgba(196,30,58,0.4)',
+                border: 'none',
+                color: 'white',
+                fontWeight: 600,
+                fontSize: '0.9rem',
+                padding: '13px 24px',
+                cursor: submitting ? 'not-allowed' : 'pointer',
+                opacity: submitting ? 0.7 : 1,
+              }}
             >
-              Tamamla 🎉
-            </Button>
+              {submitting ? t.onboarding.saving : t.onboarding.finishBtn}
+            </button>
           </div>
         </div>
       )}

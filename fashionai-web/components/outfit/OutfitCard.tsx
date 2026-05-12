@@ -21,11 +21,14 @@ interface GeneratedCardProps {
   event: string;
   season: string;
   onSave: () => void;
+  onShare?: (imageUrl: string, itemImages: string[]) => void;
   isSaving?: boolean;
   isSaved?: boolean;
+  isSharing?: boolean;
+  isShared?: boolean;
 }
 
-export function GeneratedOutfitCard({ result, event, season, onSave, isSaving, isSaved }: GeneratedCardProps) {
+export function GeneratedOutfitCard({ result, event, season, onSave, onShare, isSaving, isSaved, isSharing, isShared }: GeneratedCardProps) {
   const scorePercent = Math.round(result.score * 100);
   const scoreColor =
     scorePercent >= 85 ? 'text-emerald-600 bg-emerald-50' :
@@ -78,18 +81,139 @@ export function GeneratedOutfitCard({ result, event, season, onSave, isSaving, i
           ))}
         </div>
 
-        {/* Save button */}
-        <button
-          onClick={onSave}
-          disabled={isSaving || isSaved}
-          className={`mt-3 w-full rounded-xl py-2 text-xs font-medium transition-colors ${
-            isSaved
-              ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
-              : 'bg-ink-900 text-white hover:bg-ink-800 disabled:opacity-50'
-          }`}
-        >
-          {isSaved ? '✓ Kaydedildi' : isSaving ? 'Kaydediliyor...' : 'Kombini Kaydet'}
-        </button>
+        {/* Save + Share buttons */}
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={onSave}
+            disabled={isSaving || isSaved}
+            className={`flex-1 rounded-xl py-2 text-xs font-medium transition-colors ${
+              isSaved
+                ? 'bg-emerald-50 text-emerald-600 border border-emerald-200'
+                : 'bg-ink-900 text-white hover:bg-ink-800 disabled:opacity-50'
+            }`}
+          >
+            {isSaved ? '✓ Kaydedildi' : isSaving ? 'Kaydediliyor...' : 'Kaydet'}
+          </button>
+          {onShare && (
+            <button
+              onClick={() => {
+                const imgs = [result.top, result.bottom, result.shoes, result.bag]
+                  .filter(Boolean).map(i => i!.image_url);
+                onShare(result.top.image_url, imgs);
+              }}
+              disabled={isSharing || isShared}
+              className={`flex-1 rounded-xl py-2 text-xs font-medium transition-colors border ${
+                isShared
+                  ? 'border-violet-200 bg-violet-50 text-violet-600'
+                  : 'border-ink-200 bg-white text-ink-700 hover:bg-ink-50 disabled:opacity-50'
+              }`}
+            >
+              {isShared ? '✓ Paylaşıldı' : isSharing ? 'Paylaşılıyor...' : 'Paylaş'}
+            </button>
+          )}
+        </div>
+
+        {/* Missing piece recommendations */}
+        {(() => {
+          const suggestions: { label: string; search: string }[] = [];
+          const isFormal = event === 'invitation' || event === 'date_night' || event === 'graduation';
+          const isBusiness = event === 'business';
+          const isSport = event === 'sport';
+          const isWinter = season === 'winter';
+          const isAutumn = season === 'autumn';
+          const isSummer = season === 'summer';
+          const topIsDress = result.top.category === 'dress';
+
+          // Üst giyim (top kategori uygun değilse sezona/etkinliğe göre öner)
+          const topCategory = result.top.category;
+          const formalTops = ['blouse', 'shirt', 'dress'];
+          const warmTops = ['sweater', 'coat', 'jacket'];
+          if (isFormal && !formalTops.includes(topCategory)) {
+            suggestions.push({ label: 'şık bluz/gömlek', search: 'kadın şık bluz' });
+          }
+          if ((isWinter || isAutumn) && !warmTops.includes(topCategory)) {
+            suggestions.push({ label: 'kazak/sweatshirt', search: 'kadın kazak' });
+          }
+
+          // Alt giyim
+          if (!result.bottom && !topIsDress) {
+            if (isFormal)        suggestions.push({ label: 'şık etek/pantolon', search: 'kadın şık etek' });
+            else if (isBusiness) suggestions.push({ label: 'kumaş pantolon',    search: 'kadın kumaş pantolon' });
+            else if (isSport)    suggestions.push({ label: 'eşofman altı',       search: 'eşofman altı' });
+            else if (isWinter)   suggestions.push({ label: 'kalın pantolon',      search: 'kadın kışlık pantolon' });
+            else                 suggestions.push({ label: 'pantolon/jean',        search: 'kadın jean pantolon' });
+          }
+
+          // Ayakkabı
+          if (!result.shoes) {
+            if (isFormal)        suggestions.push({ label: 'topuklu ayakkabı',  search: 'kadın topuklu ayakkabı' });
+            else if (isBusiness) suggestions.push({ label: 'şık ayakkabı',      search: 'kadın ofis ayakkabısı' });
+            else if (isSport)    suggestions.push({ label: 'spor ayakkabı',     search: 'kadın spor ayakkabı' });
+            else if (isWinter)   suggestions.push({ label: 'kışlık bot/çizme',  search: 'kadın kışlık bot' });
+            else if (isSummer)   suggestions.push({ label: 'sandalet',           search: 'kadın sandalet' });
+            else                 suggestions.push({ label: 'sneaker/ayakkabı',   search: 'kadın sneaker' });
+          }
+
+          // Çanta
+          if (!result.bag) {
+            if (isFormal)        suggestions.push({ label: 'clutch çanta',  search: 'kadın clutch çanta' });
+            else if (isBusiness) suggestions.push({ label: 'kol çantası',   search: 'kadın kol çantası' });
+            else if (isSport)    suggestions.push({ label: 'sırt çantası',  search: 'kadın spor sırt çantası' });
+            else                 suggestions.push({ label: 'omuz çantası',  search: 'kadın omuz çantası' });
+          }
+
+          // Dışlık / mont
+          const outerCats = ['jacket', 'coat'];
+          const hasOuterwear =
+            outerCats.includes(result.top.category) ||
+            result.accessories.some(a => outerCats.includes(a.category));
+          if (!hasOuterwear) {
+            if (isWinter && isFormal) suggestions.push({ label: 'şık pelerin/ceket',  search: 'kadın şık pelerin' });
+            else if (isWinter)        suggestions.push({ label: 'mont/kaban',           search: 'kadın mont' });
+            else if (isAutumn)        suggestions.push({ label: 'kaban/trençkot',        search: 'kadın trençkot' });
+          }
+
+          // Aksesuar / takı
+          const hasAcc = result.accessories.length > 0;
+          if (!hasAcc) {
+            if (isFormal)        suggestions.push({ label: 'takı seti',        search: 'kadın takı seti' });
+            else if (isWinter)   suggestions.push({ label: 'atkı/bere',         search: 'kadın atkı bere set' });
+            else if (isSummer)   suggestions.push({ label: 'güneş gözlüğü',    search: 'kadın güneş gözlüğü' });
+            else                 suggestions.push({ label: 'aksesuar',          search: 'kadın aksesuar' });
+          }
+
+          // Düşük skor ama hiç eksik yoksa ek öneri
+          if (suggestions.length === 0 && result.score < 0.7) {
+            suggestions.push({ label: 'şal/fular', search: 'kadın şal' });
+            suggestions.push({ label: 'aksesuar',  search: 'kadın aksesuar' });
+          }
+
+          if (suggestions.length === 0) return null;
+
+          return (
+            <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-2.5">
+              <p className="mb-2 text-[10px] font-semibold uppercase tracking-wide text-amber-600">
+                Kombini tamamla
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {suggestions.map((s, i) => (
+                  <a
+                    key={i}
+                    href={`https://www.trendyol.com/sr?q=${encodeURIComponent(s.search)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1 rounded-lg border border-amber-200 bg-white px-2.5 py-1 text-[11px] font-medium text-amber-700 hover:bg-amber-100 transition-colors"
+                  >
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3 w-3 shrink-0">
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 10.5V6a3.75 3.75 0 10-7.5 0v4.5m11.356-1.993l1.263 12c.07.665-.45 1.243-1.119 1.243H4.25a1.125 1.125 0 01-1.12-1.243l1.264-12A1.125 1.125 0 015.513 7.5h12.974c.576 0 1.059.435 1.119 1.007z" />
+                    </svg>
+                    {s.label}
+                  </a>
+                ))}
+              </div>
+            </div>
+          );
+        })()}
       </div>
     </div>
   );
@@ -100,9 +224,12 @@ interface SavedCardProps {
   outfit: Outfit;
   onToggleFavorite: (outfit: Outfit) => void;
   onDelete: (outfit: Outfit) => void;
+  onShare?: () => void;
+  isSharing?: boolean;
+  isShared?: boolean;
 }
 
-export function SavedOutfitCard({ outfit, onToggleFavorite, onDelete }: SavedCardProps) {
+export function SavedOutfitCard({ outfit, onToggleFavorite, onDelete, onShare, isSharing, isShared }: SavedCardProps) {
   const scorePercent = outfit.ai_score ? Math.round(outfit.ai_score * 100) : null;
 
   return (
@@ -176,6 +303,19 @@ export function SavedOutfitCard({ outfit, onToggleFavorite, onDelete }: SavedCar
           >
             Detay
           </Link>
+          {onShare && (
+            <button
+              onClick={onShare}
+              disabled={isSharing || isShared}
+              className={`flex-1 rounded-lg border py-1.5 text-xs font-medium transition-colors ${
+                isShared
+                  ? 'border-violet-200 bg-violet-50 text-violet-600'
+                  : 'border-blue-100 text-blue-500 hover:bg-blue-50 disabled:opacity-50'
+              }`}
+            >
+              {isShared ? '✓ Paylaşıldı' : isSharing ? 'Paylaşılıyor...' : 'Paylaş'}
+            </button>
+          )}
           <button
             onClick={() => onDelete(outfit)}
             className="flex-1 rounded-lg border border-red-100 py-1.5 text-xs font-medium text-red-500 hover:bg-red-50 transition-colors"

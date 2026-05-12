@@ -30,6 +30,10 @@ export interface RecommendationPayload {
   makeup?: MakeupRecommendation;
   hairstyle?: HairstyleRecommendation;
   grooming?: GroomingRecommendation;
+  // new comprehensive payload
+  hair?: HairPayload;
+  skincare?: SkincarePayload;
+  outfit_harmony?: OutfitHarmonyPayload;
 }
 
 export interface MakeupRecommendation {
@@ -50,6 +54,74 @@ export interface GroomingRecommendation {
   beard_style: string | null;
   skincare_routine: string[];
   tips: string[];
+}
+
+// ── New comprehensive types
+export interface BeautyProduct {
+  category?: string;
+  type?: string;
+  brand: string;
+  product_name: string;
+  shade?: string;
+  why?: string;
+  price_range?: string;
+  link?: string;
+}
+
+export interface MakeupLook {
+  name: string;
+  description: string;
+  steps: string[];
+  products: BeautyProduct[];
+}
+
+export interface HairStyle {
+  name: string;
+  description: string;
+  suitable_for: string;
+  how_to?: string;
+}
+
+export interface HairCut {
+  name: string;
+  description: string;
+  face_compatibility: string;
+}
+
+export interface HairPayload {
+  styles: HairStyle[];
+  cuts: HairCut[];
+  products: BeautyProduct[];
+  tips: string[];
+}
+
+export interface SkincareStep {
+  step: string;
+  description: string;
+  product: BeautyProduct;
+}
+
+export interface SkincarePayload {
+  routine: SkincareStep[];
+  tips: string[];
+}
+
+export interface OutfitHarmonyPayload {
+  hair_suggestion: string | null;
+  makeup_suggestion: string | null;
+  color_notes: string | null;
+}
+
+export interface ComprehensiveBeautyPayload {
+  hair: HairPayload;
+  makeup: {
+    day_look: MakeupLook;
+    night_look: MakeupLook;
+    color_palette: string[];
+    avoid: string[];
+  };
+  skincare: SkincarePayload;
+  outfit_harmony: OutfitHarmonyPayload;
 }
 
 export interface FaceAnalysisHairstyle {

@@ -3,23 +3,39 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { createClient } from '@/lib/supabase/client';
 import { AvatarService } from '@/lib/services/avatar.service';
-import { Button } from '@/components/ui/Button';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 import type { Avatar } from '@/types/profile.types';
 import type { FaceShape } from '@/types/common.types';
 
-// ─── Face Shape Data ─────────────────────────────────────────
-const FACE_SHAPES: { value: FaceShape; label: string; description: string; emoji: string }[] = [
-  { value: 'oval',    label: 'Oval',    emoji: '🥚', description: 'Dengeli oranlar, hafif daralan çene' },
-  { value: 'round',   label: 'Yuvarlak', emoji: '⭕', description: 'Geniş elmacık kemikleri, yumuşak çene' },
-  { value: 'square',  label: 'Kare',    emoji: '⬜', description: 'Belirgin çene hattı, geniş alın' },
-  { value: 'heart',   label: 'Kalp',    emoji: '🫀', description: 'Geniş alın, ince ve sivri çene' },
-  { value: 'diamond', label: 'Elmas',   emoji: '💎', description: 'Dar alın ve çene, geniş elmacık' },
-  { value: 'oblong',  label: 'Uzun',    emoji: '🔲', description: 'Yüz genişliğinden uzun, düz yanaklar' },
-];
+const cardStyle: React.CSSProperties = {
+  background: '#FFFFFF',
+  border: '1px solid #E2DDD7',
+  borderRadius: 16,
+  padding: 24,
+};
 
 // ─── Component ───────────────────────────────────────────────
 export default function AvatarPage() {
   const supabase = createClient();
+  const { lang, t } = useLanguage();
+
+  const FACE_SHAPE_LABELS: Record<FaceShape, string> = {
+    oval:    'Oval',
+    round:   lang === 'tr' ? 'Yuvarlak' : 'Round',
+    square:  lang === 'tr' ? 'Kare' : 'Square',
+    heart:   lang === 'tr' ? 'Kalp' : 'Heart',
+    diamond: lang === 'tr' ? 'Elmas' : 'Diamond',
+    oblong:  lang === 'tr' ? 'Uzun' : 'Oblong',
+  };
+
+  const FACE_SHAPES: { value: FaceShape; label: string; description: string }[] = [
+    { value: 'oval',    label: FACE_SHAPE_LABELS.oval,    description: t.avatar.faceShapeDescriptions.oval },
+    { value: 'round',   label: FACE_SHAPE_LABELS.round,   description: t.avatar.faceShapeDescriptions.round },
+    { value: 'square',  label: FACE_SHAPE_LABELS.square,  description: t.avatar.faceShapeDescriptions.square },
+    { value: 'heart',   label: FACE_SHAPE_LABELS.heart,   description: t.avatar.faceShapeDescriptions.heart },
+    { value: 'diamond', label: FACE_SHAPE_LABELS.diamond, description: t.avatar.faceShapeDescriptions.diamond },
+    { value: 'oblong',  label: FACE_SHAPE_LABELS.oblong,  description: t.avatar.faceShapeDescriptions.oblong },
+  ];
 
   const [avatar, setAvatar]         = useState<Avatar | null>(null);
   const [userId, setUserId]         = useState<string | null>(null);
@@ -48,11 +64,11 @@ export default function AvatarPage() {
 
     const allowed = ['image/jpeg', 'image/png', 'image/webp'];
     if (!allowed.includes(file.type)) {
-      setErrorMsg('Sadece JPG, PNG veya WebP yükleyebilirsin.');
+      setErrorMsg(t.avatar.errorInvalidFormat);
       return;
     }
     if (file.size > 10 * 1024 * 1024) {
-      setErrorMsg('Dosya boyutu 10 MB\'dan küçük olmalı.');
+      setErrorMsg(t.avatar.errorTooLarge);
       return;
     }
 
@@ -61,7 +77,7 @@ export default function AvatarPage() {
 
     const { url, error } = await AvatarService.uploadPhoto(userId, file);
     if (error || !url) {
-      setErrorMsg('Fotoğraf yüklenemedi, tekrar dene.');
+      setErrorMsg(t.avatar.errorUploadFailed);
       setUploading(false);
       return;
     }
@@ -72,7 +88,7 @@ export default function AvatarPage() {
         ? { ...prev, photo_url: `${url}?t=${Date.now()}` }
         : { id: '', user_id: userId, photo_url: `${url}?t=${Date.now()}`, avatar_url: null, face_shape: null, skin_tone: null, hair_color: null, eye_color: null, generation_meta: null, created_at: '', updated_at: '' }
       );
-      flash('Fotoğraf yüklendi.');
+      flash(t.avatar.photoUploaded);
     }
     setUploading(false);
   }, [userId]);
@@ -98,7 +114,7 @@ export default function AvatarPage() {
     const { error } = await AvatarService.updateFaceShape(userId, shape);
     if (!error) {
       setAvatar((prev) => prev ? { ...prev, face_shape: shape } : prev);
-      flash('Yüz şekli kaydedildi.');
+      flash(t.avatar.faceShapeSaved);
     }
     setSaving(false);
   };
@@ -111,12 +127,19 @@ export default function AvatarPage() {
   return (
     <div className="max-w-2xl">
       <div className="mb-8">
-        <h1 className="text-2xl font-semibold text-ink-900">Avatar</h1>
-        <p className="text-sm text-ink-500 mt-1">Fotoğrafını yükle ve yüz şeklini seç.</p>
+        <h1 style={{ color: '#141210', fontSize: '1.5rem', fontWeight: 600 }}>{t.avatar.title}</h1>
+        <p style={{ color: '#706A64', fontSize: '0.875rem', marginTop: 4 }}>{t.avatar.subtitle}</p>
       </div>
 
       {successMsg && (
-        <div className="mb-5 rounded-xl bg-emerald-50 border border-emerald-100 px-4 py-3 text-sm text-emerald-700 flex items-center gap-2">
+        <div className="mb-5 flex items-center gap-2" style={{
+          borderRadius: 12,
+          background: 'rgba(34,197,94,0.1)',
+          border: '1px solid rgba(34,197,94,0.2)',
+          padding: '12px 16px',
+          color: '#4ade80',
+          fontSize: '0.875rem',
+        }}>
           <svg className="h-4 w-4 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
           </svg>
@@ -125,14 +148,21 @@ export default function AvatarPage() {
       )}
 
       {errorMsg && (
-        <div className="mb-5 rounded-xl bg-red-50 border border-red-100 px-4 py-3 text-sm text-red-600">
+        <div className="mb-5" style={{
+          borderRadius: 12,
+          background: 'rgba(196,30,58,0.1)',
+          border: '1px solid rgba(196,30,58,0.3)',
+          padding: '12px 16px',
+          color: '#C41E3A',
+          fontSize: '0.875rem',
+        }}>
           {errorMsg}
         </div>
       )}
 
       {/* ── Fotoğraf Yükleme ── */}
-      <section className="rounded-2xl border border-ink-100 bg-white p-6 mb-5">
-        <h2 className="text-base font-semibold text-ink-900 mb-5">Fotoğraf Yükle</h2>
+      <section style={{ ...cardStyle, marginBottom: 20 }}>
+        <h2 style={{ color: '#141210', fontSize: '1rem', fontWeight: 600, marginBottom: 20 }}>{t.avatar.photoUploadTitle}</h2>
 
         <div className="flex flex-col sm:flex-row gap-6 items-start">
           {/* Preview */}
@@ -142,14 +172,22 @@ export default function AvatarPage() {
               <img
                 src={avatar.photo_url}
                 alt="Avatar fotoğrafı"
-                className="h-32 w-32 rounded-2xl object-cover border border-ink-100"
+                className="h-32 w-32 object-cover"
+                style={{ borderRadius: 16, border: '1px solid #E2DDD7' }}
               />
             ) : (
-              <div className="h-32 w-32 rounded-2xl bg-ink-50 border-2 border-dashed border-ink-200 flex flex-col items-center justify-center gap-2">
-                <svg className="h-8 w-8 text-ink-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <div
+                className="h-32 w-32 flex flex-col items-center justify-center gap-2"
+                style={{
+                  borderRadius: 16,
+                  background: '#F5F2EE',
+                  border: '2px dashed rgba(0,0,0,0.1)',
+                }}
+              >
+                <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: '#9E9690' }}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0" />
                 </svg>
-                <span className="text-xs text-ink-300">Fotoğraf yok</span>
+                <span style={{ color: '#9E9690', fontSize: '0.7rem' }}>{t.avatar.noPhoto}</span>
               </div>
             )}
           </div>
@@ -168,28 +206,28 @@ export default function AvatarPage() {
               onDragLeave={onDragLeave}
               onDrop={onDrop}
               onClick={() => fileInputRef.current?.click()}
-              className={[
-                'flex flex-col items-center justify-center gap-3 rounded-2xl border-2 border-dashed p-8 cursor-pointer transition-colors',
-                isDragging
-                  ? 'border-brand-400 bg-brand-50'
-                  : 'border-ink-200 hover:border-ink-300 hover:bg-ink-50',
-              ].join(' ')}
+              className="flex flex-col items-center justify-center gap-3 p-8 cursor-pointer transition-all"
+              style={{
+                borderRadius: 16,
+                border: `2px dashed ${isDragging ? 'rgba(196,30,58,0.6)' : 'rgba(0,0,0,0.1)'}`,
+                background: isDragging ? 'rgba(196,30,58,0.07)' : '#F5F2EE',
+              }}
             >
               {uploading ? (
                 <div className="flex flex-col items-center gap-2">
-                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-brand-600 border-t-transparent" />
-                  <span className="text-sm text-ink-500">Yükleniyor...</span>
+                  <div className="h-6 w-6 animate-spin rounded-full border-2 border-t-transparent" style={{ borderColor: '#C41E3A', borderTopColor: 'transparent' }} />
+                  <span style={{ color: '#706A64', fontSize: '0.875rem' }}>{t.avatar.uploading}</span>
                 </div>
               ) : (
                 <>
-                  <svg className="h-8 w-8 text-ink-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5} style={{ color: '#9E9690' }}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                   </svg>
                   <div className="text-center">
-                    <p className="text-sm font-medium text-ink-700">
-                      {isDragging ? 'Bırak!' : 'Sürükle & bırak veya tıkla'}
+                    <p style={{ color: '#706A64', fontSize: '0.875rem', fontWeight: 500 }}>
+                      {isDragging ? t.avatar.drop : t.avatar.dragDropOrClick}
                     </p>
-                    <p className="text-xs text-ink-400 mt-0.5">JPG, PNG veya WebP · Maks. 10 MB</p>
+                    <p style={{ color: '#9E9690', fontSize: '0.75rem', marginTop: 2 }}>{t.avatar.maxSizeLabel}</p>
                   </div>
                 </>
               )}
@@ -199,10 +237,10 @@ export default function AvatarPage() {
       </section>
 
       {/* ── Yüz Şekli Seçimi ── */}
-      <section className="rounded-2xl border border-ink-100 bg-white p-6">
-        <h2 className="text-base font-semibold text-ink-900 mb-1">Yüz Şekli</h2>
-        <p className="text-sm text-ink-500 mb-5">
-          Yüz şeklini seç — sana en uygun saç ve makyaj önerileri sunalım.
+      <section style={cardStyle}>
+        <h2 style={{ color: '#141210', fontSize: '1rem', fontWeight: 600, marginBottom: 4 }}>{t.avatar.faceShapeTitle}</h2>
+        <p style={{ color: '#706A64', fontSize: '0.875rem', marginBottom: 20 }}>
+          {t.avatar.faceShapeDesc}
         </p>
 
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
@@ -214,26 +252,27 @@ export default function AvatarPage() {
                 type="button"
                 disabled={saving}
                 onClick={() => onFaceShapeSelect(shape.value)}
-                className={[
-                  'flex flex-col items-start gap-1.5 rounded-2xl border-2 p-4 text-left transition-all',
-                  isSelected
-                    ? 'border-brand-500 bg-brand-50'
-                    : 'border-ink-200 hover:border-ink-300 hover:bg-ink-50',
-                ].join(' ')}
+                className="flex flex-col items-start gap-1.5 p-4 text-left transition-all"
+                style={{
+                  borderRadius: 16,
+                  border: isSelected ? '1px solid rgba(196,30,58,0.3)' : '1px solid #E2DDD7',
+                  background: isSelected ? 'rgba(196,30,58,0.12)' : '#F5F2EE',
+                  cursor: saving ? 'not-allowed' : 'pointer',
+                  opacity: saving ? 0.7 : 1,
+                }}
               >
-                <span className="text-2xl">{shape.emoji}</span>
-                <span className={`text-sm font-semibold ${isSelected ? 'text-brand-700' : 'text-ink-900'}`}>
+                <span style={{ color: '#141210', fontSize: '0.875rem', fontWeight: 600 }}>
                   {shape.label}
                 </span>
-                <span className="text-xs text-ink-400 leading-relaxed">
+                <span style={{ color: '#706A64', fontSize: '0.75rem', lineHeight: 1.5 }}>
                   {shape.description}
                 </span>
                 {isSelected && (
-                  <span className="mt-1 inline-flex items-center gap-1 text-xs font-medium text-brand-600">
+                  <span className="mt-1 inline-flex items-center gap-1" style={{ color: '#C41E3A', fontSize: '0.75rem', fontWeight: 500 }}>
                     <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
                       <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
                     </svg>
-                    Seçili
+                    {t.avatar.selected}
                   </span>
                 )}
               </button>

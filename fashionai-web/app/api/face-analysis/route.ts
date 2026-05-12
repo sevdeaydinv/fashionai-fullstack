@@ -1,7 +1,7 @@
-import { GoogleGenerativeAI } from '@google/generative-ai';
+import Anthropic from '@anthropic-ai/sdk';
 import { NextRequest, NextResponse } from 'next/server';
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY!);
+const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
 
 const SYSTEM_PROMPT = `Sen bir güzellik ve stil uzmanısın. Verilen yüz fotoğrafını analiz ederek:
 1. Yüz şeklini tespit et (oval, yuvarlak, kare, kalp, elmas, uzun)
@@ -41,35 +41,48 @@ export async function POST(req: NextRequest) {
 
     const imageBytes = await imageFile.arrayBuffer();
     const imageBase64 = Buffer.from(imageBytes).toString('base64');
-    const mimeType = imageFile.type as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/heic' | 'image/heif';
+    const mediaType = imageFile.type as 'image/jpeg' | 'image/png' | 'image/webp' | 'image/gif';
 
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-1.5-flash',
-      systemInstruction: SYSTEM_PROMPT,
+    const response = await client.messages.create({
+      model: 'claude-opus-4-6',
+      max_tokens: 1024,
+      system: SYSTEM_PROMPT,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'image',
+              source: { type: 'base64', media_type: mediaType, data: imageBase64 },
+            },
+            {
+              type: 'text',
+              text: 'Bu fotoğraftaki yüzü analiz et ve JSON formatında yüz şekli tespiti ile saç modeli önerilerini ver.',
+            },
+          ],
+        },
+      ],
     });
 
-    const result = await model.generateContent([
-      {
-        inlineData: {
-          data: imageBase64,
-          mimeType,
-        },
-      },
-      'Bu fotoğraftaki yüzü analiz et ve JSON formatında yüz şekli tespiti ile saç modeli önerilerini ver.',
-    ]);
+    const textBlock = response.content.find(b => b.type === 'text');
+    if (!textBlock || textBlock.type !== 'text') {
+      return NextResponse.json({ error: 'AI yanıt vermedi.' }, { status: 500 });
+    }
 
-    const text = result.response.text().trim();
-    const jsonText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+    const jsonText = textBlock.text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
     const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
-
     if (!jsonMatch) {
       return NextResponse.json({ error: 'AI yanıtı parse edilemedi.' }, { status: 500 });
     }
 
     const parsed = JSON.parse(jsonMatch[0]);
     return NextResponse.json({ result: parsed });
-  } catch (error) {
-    console.error('[face-analysis]', error);
-    return NextResponse.json({ error: 'Yüz analizi yapılırken hata oluştu.' }, { status: 500 });
+  } catch (error: any) {
+    console.error('[face-analysis]', error?.status, error?.message);
+    const msg = error?.message ?? String(error);
+    if (msg.includes('credit') || msg.includes('balance')) {
+      return NextResponse.json({ error: 'AI servisi için kredi yetersiz. Anthropic hesabınıza kredi ekleyin.' }, { status: 402 });
+    }
+    return NextResponse.json({ error: `Hata: ${msg}` }, { status: 500 });
   }
 }

@@ -9,5 +9,6 @@ export interface CalendarEvent {
   location: string | null;
   notes: string | null;
   outfit_id: string | null;
+  cover_image_url: string | null;
   created_at: string;
 }

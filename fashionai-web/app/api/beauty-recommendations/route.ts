@@ -1,72 +1,131 @@
-import Anthropic from '@anthropic-ai/sdk';
+import Groq from 'groq-sdk';
 import { NextRequest, NextResponse } from 'next/server';
 
-const client = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY });
 
-const SYSTEM_PROMPT = `Sen bir profesyonel güzellik ve bakım uzmanısın. Kullanıcının yüz şekli, cilt tonu, cilt tipi, saç tipi gibi özelliklerine göre kişiselleştirilmiş güzellik önerileri sunuyorsun.
+const HAIR_SYSTEM_PROMPT = `Sen profesyonel bir saç stilisti ve güzellik uzmanısın. Kullanıcının saç uzunluğuna ve kombin stiline göre odaklanmış saç şekillendirme önerileri sunuyorsun.
 
-ÇIKTI FORMATI: Sadece aşağıdaki JSON formatında yanıt ver, başka metin ekleme:
+SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir metin ekleme:
 
 {
-  "makeup": {
-    "foundation_shade": "önerilen fondöten tonu",
-    "lip_color": "önerilen dudak rengi",
-    "eye_shadow_palette": ["renk1", "renk2", "renk3"],
-    "blush_tone": "önerilen allık tonu",
-    "style_tips": ["ipucu1", "ipucu2", "ipucu3"]
-  },
-  "hairstyle": {
-    "suggested_styles": ["stil1", "stil2", "stil3"],
-    "products": ["ürün tipi1", "ürün tipi2"],
-    "styling_tips": ["ipucu1", "ipucu2"]
-  },
-  "grooming": {
-    "beard_style": "sakal stili veya null",
-    "skincare_routine": ["adım1", "adım2", "adım3"],
-    "tips": ["ipucu1", "ipucu2"]
-  }
+  "style_name": "Saç modeli adı",
+  "description": "Bu modelin neden uygun olduğunun kısa açıklaması",
+  "steps": ["Adım 1", "Adım 2", "Adım 3", "Adım 4"],
+  "tips": ["İpucu 1", "İpucu 2", "İpucu 3"]
 }`;
+
+const MAKEUP_SYSTEM_PROMPT = `Sen profesyonel bir makyaj sanatçısı ve güzellik uzmanısın. Kullanıcının cilt tonuna ve kombininin kategorisine göre odaklanmış kişisel makyaj önerisi sunuyorsun.
+
+SADECE aşağıdaki JSON formatında yanıt ver, başka hiçbir metin ekleme:
+
+{
+  "look_name": "Makyaj look adı",
+  "formality": "glamorous veya soft veya natural",
+  "description": "Bu lookun kısa açıklaması",
+  "key_colors": ["Renk 1", "Renk 2", "Renk 3"],
+  "steps": ["Adım 1", "Adım 2", "Adım 3", "Adım 4", "Adım 5"],
+  "tips": ["İpucu 1", "İpucu 2", "İpucu 3"]
+}`;
+
+async function callGroq(systemPrompt: string, userMessage: string): Promise<Record<string, unknown>> {
+  const response = await groq.chat.completions.create({
+    model: 'llama-3.3-70b-versatile',
+    max_tokens: 1024,
+    temperature: 0.7,
+    messages: [
+      { role: 'system', content: systemPrompt },
+      { role: 'user', content: userMessage },
+    ],
+  });
+
+  const text = response.choices[0]?.message?.content?.trim() ?? '';
+  const jsonText = text.replace(/```json\n?/g, '').replace(/```\n?/g, '').trim();
+  const match = jsonText.match(/\{[\s\S]*\}/);
+  if (!match) throw new Error('Geçersiz JSON yanıtı');
+  return JSON.parse(match[0]);
+}
 
 export async function POST(req: NextRequest) {
   try {
-    const { profile, gender, age } = await req.json();
+    const body = await req.json();
+    const { type, profile } = body;
+    const outfit = body.outfit ?? null;
 
     if (!profile) {
       return NextResponse.json({ error: 'Profil bilgisi eksik.' }, { status: 400 });
     }
 
-    const userMessage = `Kullanıcı profili:
-- Cinsiyet: ${gender ?? 'belirtilmemiş'}
-- Yaş: ${age ?? 'belirtilmemiş'}
-- Yüz şekli: ${profile.face_shape ?? 'belirtilmemiş'}
-- Cilt tonu: ${profile.skin_tone ?? 'belirtilmemiş'}
-- Cilt tipi: ${profile.skin_type ?? 'belirtilmemiş'}
-- Saç tipi: ${profile.hair_type ?? 'belirtilmemiş'}
-- Saç uzunluğu: ${profile.hair_length ?? 'belirtilmemiş'}
-- Göz rengi: ${profile.eye_color ?? 'belirtilmemiş'}
+    // ── Saç önerisi
+    if (type === 'hair') {
+      const hairLength = profile.hair_length ?? 'belirtilmemiş';
+      const event = outfit?.event ?? 'belirtilmemiş';
+      const season = outfit?.season ?? 'belirtilmemiş';
 
-Bu profile uygun güzellik ve bakım önerileri sun.`;
+      const EVENT_TR: Record<string, string> = {
+        daily_casual: 'Günlük', picnic: 'Piknik', sport: 'Spor',
+        graduation: 'Mezuniyet', invitation: 'Davet', travel: 'Seyahat',
+        business: 'İş', date_night: 'Romantik Gece',
+      };
 
-    const response = await client.messages.create({
-      model: 'claude-opus-4-6',
-      max_tokens: 1024,
-      system: SYSTEM_PROMPT,
-      messages: [{ role: 'user', content: userMessage }],
-    });
+      const userMessage = `Kullanıcı profili:
+- Saç uzunluğu: ${hairLength}
+- Kombin etkinliği: ${EVENT_TR[event] ?? event}
+- Sezon: ${season}
 
-    const textBlock = response.content.find(b => b.type === 'text');
-    if (!textBlock || textBlock.type !== 'text') {
-      return NextResponse.json({ error: 'AI yanıt vermedi.' }, { status: 500 });
+Bu saç uzunluğuna ve kombinin stiline göre en uygun saç şekillendirme önerisini sun.`;
+
+      try {
+        const payload = await callGroq(HAIR_SYSTEM_PROMPT, userMessage);
+        return NextResponse.json({ payload });
+      } catch (err: any) {
+        console.error('[hair] error:', err?.message);
+        return NextResponse.json({ error: 'Saç önerisi üretilemedi.' }, { status: 500 });
+      }
     }
 
-    const jsonMatch = textBlock.text.trim().match(/\{[\s\S]*\}/);
-    if (!jsonMatch) {
-      return NextResponse.json({ error: 'AI yanıtı parse edilemedi.' }, { status: 500 });
+    // ── Makyaj önerisi
+    if (type === 'makeup') {
+      const SKIN_TONE_TR: Record<string, string> = {
+        fair: 'Açık', medium: 'Orta', dark: 'Koyu',
+      };
+      const EVENT_TR: Record<string, string> = {
+        daily_casual: 'Günlük', picnic: 'Piknik', sport: 'Spor',
+        graduation: 'Mezuniyet', invitation: 'Davet', travel: 'Seyahat',
+        business: 'İş', date_night: 'Romantik Gece',
+      };
+
+      const skinTone = SKIN_TONE_TR[profile.skin_tone] ?? profile.skin_tone ?? 'belirtilmemiş';
+      const event = outfit?.event ?? 'belirtilmemiş';
+      const itemColors = outfit?.item_colors ?? '';
+
+      // formality belirle
+      let formality = 'natural';
+      if (['invitation', 'date_night', 'business', 'graduation'].includes(event)) {
+        formality = 'glamorous';
+      } else if (['picnic', 'daily_casual', 'sport', 'travel'].includes(event)) {
+        formality = 'soft';
+      }
+
+      const userMessage = `Kullanıcı profili:
+- Cilt tonu: ${skinTone}
+- Kombin etkinliği: ${EVENT_TR[event] ?? event}
+- Kıyafet renkleri: ${itemColors || 'belirtilmemiş'}
+- Makyaj stili: ${formality}
+
+Bu cilt tonuna ve "${EVENT_TR[event] ?? event}" etkinliğine uygun makyaj önerisi sun. formality alanını "${formality}" olarak ayarla.`;
+
+      try {
+        const payload = await callGroq(MAKEUP_SYSTEM_PROMPT, userMessage);
+        return NextResponse.json({ payload });
+      } catch (err: any) {
+        console.error('[makeup] error:', err?.message, err?.status, err?.error);
+        return NextResponse.json({ error: `Makyaj önerisi üretilemedi: ${err?.message ?? 'bilinmeyen hata'}` }, { status: 500 });
+      }
     }
 
-    const payload = JSON.parse(jsonMatch[0]);
-    return NextResponse.json({ payload });
-  } catch (error) {
+    return NextResponse.json({ error: 'Geçersiz istek tipi.' }, { status: 400 });
+
+  } catch (error: any) {
     console.error('Beauty recommendation error:', error);
     return NextResponse.json({ error: 'Öneri üretilirken hata oluştu.' }, { status: 500 });
   }

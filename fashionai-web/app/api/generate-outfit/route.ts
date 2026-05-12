@@ -48,9 +48,9 @@ const EVENT_RULES: Record<string, {
     bagAllow:    ['backpack', 'bag', 'sport_bag'],
   },
   daily_casual: {
-    topAllow:    ['tshirt', 'shirt', 'sweater', 'blouse'],
+    topAllow:    ['tshirt', 'shirt', 'sweater', 'blouse', 'dress'],
     bottomAllow: ['jeans', 'pants', 'shorts', 'skirt'],
-    shoeAllow:   ['sneakers', 'shoes', 'boots'],
+    shoeAllow:   ['sneakers', 'shoes', 'boots', 'sandals', 'slippers'],
     bagAllow:    ['bag', 'backpack', 'clutch'],
   },
   travel: {
@@ -170,7 +170,18 @@ ETKİNLİK KURALLARI
    ❌ sneakers, sport_bag, sweatpants YASAK
 
 👕 daily_casual: tshirt/shirt/sweater/blouse + jeans/pants/skirt + sneakers/shoes/boots + bag/backpack
+   🌞 Yaz+günlük+elbise: ayakkabı önceliği → sandalet/terlik 1. tercih, sneakers 2. tercih
 ✈️ travel: tshirt/shirt/sweater + jeans/pants/sweatpants + sneakers/shoes + backpack/bag
+
+════════════════════════
+RENK UYUMU KURALLARI
+════════════════════════
+• Nötr renkler (siyah, beyaz, gri, bej, krem, lacivert) her renkle uyumludur
+• Aynı renk ailesi uyumludur: pembe+pembe, mavi+lacivert, bej+krem
+• Zıt ama uyumlu: beyaz+renkli, siyah+renkli, bej+toprak tonları
+• Çiçekli/desenli parça varsa düz renk parçayla eşleştir
+• Renkli (pembe, kırmızı, sarı, yeşil vb) üst/elbise → nötr veya aynı ton ayakkabı/çanta seç
+• Yazlık pembe elbise → beyaz, pembe veya bej ayakkabı/sandal; siyah spor ayakkabı KÖTÜ UYUM
 
 ════════════════════════
 GENEL KURALLAR
@@ -178,9 +189,9 @@ GENEL KURALLAR
 • Her kombinasyonda: 1 üst + 1 alt (dress ise null) + 1 ayakkabı + 1 çanta
 • dress seçildiğinde bottom_id KESİNLİKLE null
 • sweatpants ile sadece tshirt — shirt/blouse/sweater UYUMSUZ
-• Renk uyumuna dikkat et: siyah/beyaz/gri/bej her renkle gider
 • 3 kombinin birbirinden FARKLI olmasına özen göster
 • Kombinleri score'a göre yüksekten düşüğe sırala
+• Reason kısmında renk uyumunu açıkla
 
 ÇIKTI: Yalnızca JSON, başka hiçbir metin ekleme:
 {
@@ -205,7 +216,11 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Gardıropta kıyafet bulunamadı.' }, { status: 400 });
     }
 
-    const rules = EVENT_RULES[event] ?? EVENT_RULES.daily_casual;
+    // Mutable kopya — yaz+günlük kombininde ayakkabı sırası değişebilir
+    const rules = { ...(EVENT_RULES[event] ?? EVENT_RULES.daily_casual) };
+    if (event === 'daily_casual' && season === 'summer') {
+      rules.shoeAllow = ['sandals', 'slippers', 'sneakers', 'shoes', 'boots'];
+    }
 
     // Sezon filtresi — kıyafetin sezonu seçilen sezonla eşleşmiyorsa çıkar
     // (all_season veya sezon etiketi hiç yoksa her zaman dahil et)
@@ -221,6 +236,9 @@ export async function POST(req: NextRequest) {
     const EVENT_STYLE_FILTER: Record<string, { styleKey: string; label: string }> = {
       business:     { styleKey: 'formal',  label: '"Resmi"' },
       daily_casual: { styleKey: 'casual',  label: '"Günlük"' },
+      date_night:   { styleKey: 'elegant', label: '"Şık/Elegant"' },
+      invitation:   { styleKey: 'elegant', label: '"Şık/Elegant"' },
+      graduation:   { styleKey: 'elegant', label: '"Şık/Elegant"' },
     };
 
     let filteredClothes = clothesAfterSeason;
@@ -245,7 +263,8 @@ export async function POST(req: NextRequest) {
     const clothesList = shuffled.map((c: Record<string, unknown>) => {
       const style   = Array.isArray(c.style)  ? (c.style  as string[]).join(', ') : '';
       const seasonS = Array.isArray(c.season) ? (c.season as string[]).join(', ') : '';
-      return `ID:${c.id} | ${c.name} | kat:${c.category} | stil:${style} | sezon:${seasonS} | renk:${c.color_name || c.color}`;
+      const colorVal = String(c.color_name || c.color || '');
+      return `ID:${c.id} | Ad:"${c.name}" | Kategori:${c.category} | Renk:${colorVal} | Stil:${style} | Sezon:${seasonS}`;
     }).join('\n');
 
     const weatherInfo = weather_cond
@@ -261,7 +280,7 @@ export async function POST(req: NextRequest) {
 
     const seasonLabel: Record<string, string> = {
       spring: 'İlkbahar (ılık — şort ve kısa kol uygun değil, hafif sweater/jeans tercih et)',
-      summer: 'Yaz (sıcak — tshirt, şort, ince kıyafetler uygun)',
+      summer: 'Yaz (sıcak — tshirt, şort, elbise, sandal/terlik/açık ayakkabı uygun. Renkli kıyafetlerle renk uyumuna dikkat et: pembe elbise → beyaz/pembe/bej sandal)',
       autumn: 'Sonbahar (serin — sweater, jeans, boots uygun; kısa kol ve şort KULLANMA)',
       winter: 'Kış (soğuk — sweater tercih et, boots/kapalı ayakkabı; şort ve ince tişört KULLANMA). Spor etkinliğinde kışın: sweater + sweatpants + sneakers.',
     };
@@ -358,8 +377,8 @@ ${clothesList}`;
       const aiHasDress = aiResults.some(r => cat(r.top as Record<string, unknown>) === 'dress');
       if (!aiHasDress) {
         const dress = dresses[0] as Record<string, unknown>;
-        const shoe  = clothes.find(c => rules.shoeAllow.includes(cat(c))) ?? null;
-        const bag   = clothes.find(c => rules.bagAllow.includes(cat(c)))  ?? null;
+        const shoe  = clothes.find((c: Record<string, unknown>) => rules.shoeAllow.includes(cat(c))) ?? null;
+        const bag   = clothes.find((c: Record<string, unknown>) => rules.bagAllow.includes(cat(c)))  ?? null;
         aiResults.unshift({
           top: dress, bottom: null,
           shoes: shoe, bag,

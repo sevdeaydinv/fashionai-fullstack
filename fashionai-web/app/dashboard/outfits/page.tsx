@@ -5,39 +5,55 @@ import { createClient } from '@/lib/supabase/client';
 import { useQuery } from '@tanstack/react-query';
 import { useOutfits } from '@/lib/hooks/useOutfits';
 import { useWeather } from '@/lib/hooks/useWeather';
+import { useShareOutfit } from '@/lib/hooks/useCommunity';
 import { GeneratedOutfitCard, SavedOutfitCard } from '@/components/outfit/OutfitCard';
+import { useLanguage } from '@/lib/i18n/LanguageContext';
 import type { OutfitGenerationResult, Outfit } from '@/types/outfit.types';
 import type { EventType, Season, WeatherCondition } from '@/types/common.types';
 
-// ── Constants
-const EVENTS: { value: EventType; label: string; icon: string }[] = [
-  { value: 'daily_casual', label: 'Günlük',     icon: '☀️' },
-  { value: 'picnic',       label: 'Piknik',      icon: '🌿' },
-  { value: 'sport',        label: 'Spor',        icon: '🏃' },
-  { value: 'business',     label: 'İş',          icon: '💼' },
-  { value: 'date_night',   label: 'Romantik',    icon: '🌙' },
-  { value: 'invitation',   label: 'Davet',       icon: '🎉' },
-  { value: 'graduation',   label: 'Mezuniyet',   icon: '🎓' },
-  { value: 'travel',       label: 'Seyahat',     icon: '✈️' },
-];
+const sectionLabelStyle: React.CSSProperties = {
+  color: '#9E9690',
+  fontSize: '0.6rem',
+  letterSpacing: '0.2em',
+  textTransform: 'uppercase',
+  fontWeight: 700,
+};
 
-const SEASONS: { value: Season; label: string }[] = [
-  { value: 'spring', label: 'İlkbahar' },
-  { value: 'summer', label: 'Yaz' },
-  { value: 'autumn', label: 'Sonbahar' },
-  { value: 'winter', label: 'Kış' },
-];
-
-const WEATHER_CONDITIONS: { value: WeatherCondition; label: string }[] = [
-  { value: 'sunny',        label: 'Güneşli' },
-  { value: 'partly_cloudy',label: 'Parçalı Bulutlu' },
-  { value: 'cloudy',       label: 'Bulutlu' },
-  { value: 'rainy',        label: 'Yağmurlu' },
-  { value: 'snowy',        label: 'Karlı' },
-];
+const cardStyle: React.CSSProperties = {
+  background: '#FFFFFF',
+  border: '1px solid rgba(0,0,0,0.07)',
+  borderRadius: 16,
+};
 
 export default function OutfitsPage() {
   const supabase = createClient();
+  const { t } = useLanguage();
+
+  const EVENTS: { value: EventType; label: string }[] = [
+    { value: 'daily_casual', label: t.outfits.eventLabels.daily_casual },
+    { value: 'picnic',       label: t.outfits.eventLabels.picnic },
+    { value: 'sport',        label: t.outfits.eventLabels.sport },
+    { value: 'business',     label: t.outfits.eventLabels.business },
+    { value: 'date_night',   label: t.outfits.eventLabels.date_night },
+    { value: 'invitation',   label: t.outfits.eventLabels.invitation },
+    { value: 'graduation',   label: t.outfits.eventLabels.graduation },
+    { value: 'travel',       label: t.outfits.eventLabels.travel },
+  ];
+
+  const SEASONS: { value: Season; label: string }[] = [
+    { value: 'spring', label: t.outfits.seasonLabels.spring },
+    { value: 'summer', label: t.outfits.seasonLabels.summer },
+    { value: 'autumn', label: t.outfits.seasonLabels.autumn },
+    { value: 'winter', label: t.outfits.seasonLabels.winter },
+  ];
+
+  const WEATHER_CONDITIONS: { value: WeatherCondition; label: string }[] = [
+    { value: 'sunny',         label: t.outfits.weatherLabels.sunny },
+    { value: 'partly_cloudy', label: t.outfits.weatherLabels.partly_cloudy },
+    { value: 'cloudy',        label: t.outfits.weatherLabels.cloudy },
+    { value: 'rainy',         label: t.outfits.weatherLabels.rainy },
+    { value: 'snowy',         label: t.outfits.weatherLabels.snowy },
+  ];
   const { data: userData } = useQuery({
     queryKey: ['user'],
     queryFn: async () => { const { data: { user } } = await supabase.auth.getUser(); return user; },
@@ -62,6 +78,33 @@ export default function OutfitsPage() {
       setShowWeather(true);
     }
   }, [weather]);
+
+  // ── Share
+  const shareOutfit = useShareOutfit(userId);
+  const [shareModal, setShareModal] = useState<{ imageUrl: string; itemImages: string[]; idx: number; outfitId?: string } | null>(null);
+  const [shareCaption, setShareCaption] = useState('');
+  const [sharingIdx, setSharingIdx] = useState<number | null>(null);
+  const [sharedIdxs, setSharedIdxs] = useState<Set<number>>(new Set());
+  const [savedSharedIds, setSavedSharedIds] = useState<Set<string>>(new Set());
+  const [savingSavedShareId, setSavingSavedShareId] = useState<string | null>(null);
+
+  const handleSavedOutfitShare = async (outfit: Outfit) => {
+    // Fetch outfit items to build collage
+    const supabaseClient = createClient();
+    const { data: items } = await supabaseClient
+      .from('outfit_items')
+      .select('cloth_id, clothes(image_url)')
+      .eq('outfit_id', outfit.id)
+      .limit(4);
+
+    const itemImages: string[] = (items ?? [])
+      .map((it: any) => it.clothes?.image_url)
+      .filter(Boolean);
+
+    const imageUrl = outfit.cover_image_url ?? (itemImages[0] ?? '');
+    setShareModal({ imageUrl, itemImages, idx: -1, outfitId: outfit.id });
+    setShareCaption('');
+  };
 
   // ── Generated results
   const [results, setResults] = useState<OutfitGenerationResult[]>([]);
@@ -98,6 +141,33 @@ export default function OutfitsPage() {
     setSavingIdx(null);
   };
 
+  // ── Share to Keşfet
+  const [shareError, setShareError] = useState<string | null>(null);
+  const handleShareConfirm = async () => {
+    if (!shareModal) return;
+    setShareError(null);
+    if (shareModal.idx >= 0) setSharingIdx(shareModal.idx);
+    else if (shareModal.outfitId) setSavingSavedShareId(shareModal.outfitId);
+    try {
+      await shareOutfit.mutateAsync({
+        outfit_id: shareModal.outfitId ?? null,
+        image_url: shareModal.imageUrl,
+        item_images: shareModal.itemImages,
+        caption: shareCaption,
+        tags: [],
+      });
+      if (shareModal.idx >= 0) setSharedIdxs(prev => new Set(prev).add(shareModal.idx));
+      else if (shareModal.outfitId) setSavedSharedIds(prev => new Set(prev).add(shareModal.outfitId!));
+      setShareModal(null);
+      setShareCaption('');
+    } catch (err: any) {
+      setShareError(err?.message ?? 'Paylaşım sırasında hata oluştu');
+    } finally {
+      setSharingIdx(null);
+      setSavingSavedShareId(null);
+    }
+  };
+
   // ── Delete
   const handleDelete = async (outfit: Outfit) => {
     await deleteOutfit.mutateAsync(outfit.id);
@@ -106,75 +176,67 @@ export default function OutfitsPage() {
 
   const filteredOutfits = filterFav ? outfits.filter(o => o.is_favorite) : outfits;
 
+  const chipStyle = (active: boolean): React.CSSProperties => ({
+    border: active ? '1px solid rgba(196,30,58,0.4)' : '1px solid #E2DDD7',
+    background: active ? 'rgba(196,30,58,0.1)' : '#F5F2EE',
+    color: active ? '#C41E3A' : '#706A64',
+    borderRadius: 8,
+    padding: '8px 12px',
+    fontSize: '0.65rem',
+    fontWeight: 700,
+    letterSpacing: '0.1em',
+    textTransform: 'uppercase' as const,
+    cursor: 'pointer',
+    transition: 'all 0.15s',
+  });
+
   return (
     <div>
       {/* Header */}
       <div className="mb-8">
-        <p className="section-label mb-1">AI Styling</p>
-        <h1 className="editorial-heading text-4xl text-ink-900">Outfit Generator</h1>
-        <p className="text-sm text-ink-400 mt-1">AI-powered combinations from your wardrobe</p>
+        <p style={sectionLabelStyle} className="mb-1">{t.outfits.sectionLabel}</p>
+        <h1 style={{ color: '#141210', fontFamily: 'serif', fontWeight: 700, fontSize: '2.25rem' }}>{t.outfits.title}</h1>
+        <p style={{ color: '#706A64', fontSize: '0.875rem', marginTop: 4 }}>{t.outfits.subtitle}</p>
       </div>
 
-      <div className="divider-editorial mb-8" />
+      <div style={{ height: 1, background: 'rgba(0,0,0,0.07)' }} className="mb-8" />
 
-      <div className="space-y-6 max-w-3xl">
+      {/* ── Top row: form card + seasons card side by side */}
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 16, alignItems: 'stretch' }}>
 
-        {/* ── Generation form */}
-        <div className="bg-white border border-ink-100 p-6 space-y-6">
+        {/* Generation form — event + weather (no button) */}
+        <div style={{ ...cardStyle, padding: 24, display: 'flex', flexDirection: 'column', gap: 24 }}>
 
           {/* Event */}
           <div>
-            <label className="section-label mb-3 block">Occasion</label>
+            <label style={sectionLabelStyle} className="mb-3 block">{t.outfits.occasionLabel}</label>
             <div className="grid grid-cols-4 gap-2">
               {EVENTS.map(e => (
                 <button
                   key={e.value}
                   onClick={() => setEvent(e.value)}
-                  className={`flex flex-col items-center gap-1.5 border py-3 text-[0.65rem] font-semibold tracking-wider uppercase transition-colors ${
-                    event === e.value
-                      ? 'border-ink-900 bg-ink-900 text-white'
-                      : 'border-ink-200 text-ink-500 hover:border-ink-400 hover:text-ink-800'
-                  }`}
+                  style={chipStyle(event === e.value)}
+                  className="flex flex-col items-center gap-1.5 py-3 transition-all"
                 >
-                  <span className="text-lg">{e.icon}</span>
                   {e.label}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Season */}
-          <div>
-            <label className="section-label mb-3 block">Season</label>
-            <div className="flex gap-2">
-              {SEASONS.map(s => (
-                <button
-                  key={s.value}
-                  onClick={() => setSeason(s.value)}
-                  className={`flex-1 border py-2 text-[0.65rem] font-semibold tracking-wider uppercase transition-colors ${
-                    season === s.value
-                      ? 'border-ink-900 bg-ink-900 text-white'
-                      : 'border-ink-200 text-ink-500 hover:border-ink-400'
-                  }`}
-                >
-                  {s.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
           {/* Weather (optional) */}
-          <div>
+          <div style={{ marginTop: 'auto' }}>
             <button
               onClick={() => setShowWeather(v => !v)}
-              className="flex items-center gap-2 text-[0.65rem] font-semibold tracking-wider uppercase text-ink-400 hover:text-ink-800 transition-colors"
+              className="flex items-center gap-2 transition-colors"
+              style={{ ...sectionLabelStyle, background: 'none', border: 'none', cursor: 'pointer' }}
             >
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} className="h-3 w-3">
                 <path strokeLinecap="round" strokeLinejoin="round" d={showWeather ? 'M19.5 8.25l-7.5 7.5-7.5-7.5' : 'M8.25 4.5l7.5 7.5-7.5 7.5'} />
               </svg>
-              Weather Filter
+              {t.outfits.weatherFilter}
               {weather && (
-                <span className="text-sky-500">
+                <span style={{ color: '#2a7aad', textTransform: 'none', fontSize: '0.75rem', fontWeight: 400, letterSpacing: 0 }}>
                   {weather.temp}°C · {weather.city}
                 </span>
               )}
@@ -187,61 +249,140 @@ export default function OutfitsPage() {
                     <button
                       key={w.value}
                       onClick={() => setWeatherCond(weatherCond === w.value ? undefined : w.value)}
-                      className={`border px-3 py-1.5 text-[0.65rem] font-semibold tracking-wider uppercase transition-colors ${
-                        weatherCond === w.value
-                          ? 'border-ink-900 bg-ink-900 text-white'
-                          : 'border-ink-200 text-ink-500 hover:border-ink-400'
-                      }`}
+                      style={chipStyle(weatherCond === w.value)}
                     >
                       {w.label}
                     </button>
                   ))}
                 </div>
-                <div className="flex items-center gap-2">
-                  <input
-                    type="number"
-                    placeholder="Temperature (°C)"
-                    value={weatherTemp ?? ''}
-                    onChange={e => setWeatherTemp(e.target.value ? Number(e.target.value) : undefined)}
-                    className="w-40 border border-ink-200 px-3 py-1.5 text-sm text-ink-900 placeholder:text-ink-300 focus:outline-none focus:border-ink-400 transition-colors"
-                  />
-                  <span className="text-xs text-ink-400">optional</span>
-                </div>
               </div>
             )}
           </div>
-
-          {/* Generate button */}
-          <button
-            onClick={handleGenerate}
-            disabled={generateOutfit.isPending}
-            className="btn-primary w-full disabled:opacity-60"
-          >
-            {generateOutfit.isPending ? (
-              <span className="flex items-center justify-center gap-2">
-                <svg className="h-3.5 w-3.5 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                </svg>
-                Generating outfits...
-              </span>
-            ) : '✨ Generate Outfit'}
-          </button>
         </div>
 
-        {/* ── Generated results */}
+        {/* Seasons card — right column, equal height */}
+        <div style={{
+          ...cardStyle,
+          padding: 24,
+          background: 'linear-gradient(160deg, #FFFFFF 0%, #FAF6F3 100%)',
+          position: 'relative',
+          overflow: 'hidden',
+          display: 'flex',
+          flexDirection: 'column',
+        }}>
+          {/* Decorative background accent */}
+          <div style={{
+            position: 'absolute', top: -40, right: -40,
+            width: 130, height: 130,
+            background: 'radial-gradient(circle, rgba(196,30,58,0.06) 0%, transparent 70%)',
+            borderRadius: '50%',
+            pointerEvents: 'none',
+          }} />
+
+          <label style={sectionLabelStyle} className="mb-5 block">{t.outfits.seasonLabel}</label>
+
+          <div className="flex flex-col gap-2.5">
+            {SEASONS.map(s => {
+              const active = season === s.value;
+              return (
+                <button
+                  key={s.value}
+                  onClick={() => setSeason(s.value)}
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 10,
+                    padding: '12px 16px',
+                    borderRadius: 12,
+                    border: active ? '1px solid rgba(196,30,58,0.35)' : '1px solid rgba(0,0,0,0.06)',
+                    background: active ? 'rgba(196,30,58,0.08)' : 'rgba(0,0,0,0.03)',
+                    cursor: 'pointer',
+                    transition: 'all 0.15s',
+                    textAlign: 'left',
+                    width: '100%',
+                  }}
+                >
+                  <span style={{
+                    fontSize: '0.8rem',
+                    fontWeight: active ? 700 : 500,
+                    color: active ? '#C41E3A' : '#2C2320',
+                    letterSpacing: '0.03em',
+                  }}>
+                    {s.label}
+                  </span>
+                  {active && (
+                    <span style={{ marginLeft: 'auto', flexShrink: 0 }}>
+                      <svg viewBox="0 0 24 24" fill="none" stroke="#C41E3A" strokeWidth={2.5} style={{ width: 14, height: 14 }}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    </span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* ── Shared generate button — full width, below both cards */}
+      <button
+        onClick={handleGenerate}
+        disabled={generateOutfit.isPending}
+        style={{
+          width: '100%',
+          background: 'linear-gradient(135deg, #7a0020 0%, #C41E3A 60%, #e8294a 100%)',
+          borderRadius: 14,
+          boxShadow: '0 4px 24px rgba(196,30,58,0.35)',
+          border: 'none',
+          color: 'white',
+          fontWeight: 600,
+          fontSize: '0.925rem',
+          padding: '15px 24px',
+          cursor: generateOutfit.isPending ? 'not-allowed' : 'pointer',
+          opacity: generateOutfit.isPending ? 0.7 : 1,
+          marginBottom: 28,
+          letterSpacing: '0.02em',
+        }}
+      >
+        {generateOutfit.isPending ? (
+          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <svg className="animate-spin" style={{ width: 16, height: 16 }} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+            </svg>
+            {t.outfits.generating}
+          </span>
+        ) : (
+          <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 8 }}>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} style={{ width: 16, height: 16 }}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" />
+            </svg>
+            {t.outfits.generateBtn}
+          </span>
+        )}
+      </button>
+
+      {/* ── Generated results — full width */}
+      <div className="space-y-6">
         {noResults && (
-          <div className="border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-700">
-            No matching items found for the selected criteria. Add more clothing to your wardrobe or adjust the filters.
+          <div style={{
+            background: 'rgba(196,30,58,0.08)',
+            border: '1px solid rgba(196,30,58,0.2)',
+            borderRadius: 12,
+            padding: '16px 20px',
+            color: 'rgba(255,160,100,0.9)',
+            fontSize: '0.875rem',
+          }}>
+            {t.outfits.noResults}
           </div>
         )}
 
         {results.length > 0 && (
           <div>
             <div className="flex items-center justify-between mb-4">
-              <p className="section-label">Suggested Outfits</p>
-              <span className="text-xs text-ink-400">{results.length} kombin · uyuma göre sıralı</span>
+              <p style={sectionLabelStyle}>{t.outfits.suggestedOutfits}</p>
+              <span style={{ color: '#9E9690', fontSize: '0.75rem' }}>{results.length} {t.outfits.sortedByCompatibility}</span>
             </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {results.map((result, i) => (
                 <GeneratedOutfitCard
                   key={i}
@@ -251,53 +392,70 @@ export default function OutfitsPage() {
                   onSave={() => handleSave(result, i)}
                   isSaving={savingIdx === i}
                   isSaved={savedIdxs.has(i)}
+                  onShare={(imageUrl, itemImages) => { setShareModal({ imageUrl, itemImages, idx: i }); setShareCaption(''); }}
+                  isSharing={sharingIdx === i}
+                  isShared={sharedIdxs.has(i)}
                 />
               ))}
             </div>
           </div>
         )}
 
-        {/* ── Saved outfits */}
+        {/* ── Saved outfits — full width */}
         <div>
           <div className="flex items-center justify-between mb-4">
             <div>
-              <p className="section-label mb-0.5">Saved Outfits</p>
-              <span className="text-xs text-ink-400">{outfits.length} combinations</span>
+              <p style={sectionLabelStyle} className="mb-0.5">{t.outfits.savedOutfits}</p>
+              <span style={{ color: '#9E9690', fontSize: '0.75rem' }}>{outfits.length} {t.outfits.combinations}</span>
             </div>
             <button
               onClick={() => setFilterFav(v => !v)}
-              className={`flex items-center gap-1.5 border px-3 py-1.5 text-[0.65rem] font-semibold tracking-wider uppercase transition-colors ${
-                filterFav ? 'border-brand-500 bg-brand-50 text-brand-600' : 'border-ink-200 text-ink-500 hover:border-ink-400'
-              }`}
+              className="flex items-center gap-1.5 px-3 py-1.5 text-[0.65rem] font-semibold tracking-wider uppercase transition-all"
+              style={{
+                borderRadius: 8,
+                border: filterFav ? '1px solid rgba(196,30,58,0.4)' : '1px solid #E2DDD7',
+                background: filterFav ? 'rgba(196,30,58,0.1)' : '#F5F2EE',
+                color: filterFav ? '#C41E3A' : '#706A64',
+                cursor: 'pointer',
+              }}
             >
-              <svg viewBox="0 0 24 24" className={`h-3 w-3 ${filterFav ? 'fill-brand-500' : 'fill-none'}`} stroke="currentColor" strokeWidth={2}>
+              <svg viewBox="0 0 24 24" className="h-3 w-3" style={{ fill: filterFav ? '#C41E3A' : 'none' }} stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M21 8.25c0-2.485-2.099-4.5-4.688-4.5-1.935 0-3.597 1.126-4.312 2.733-.715-1.607-2.377-2.733-4.313-2.733C5.1 3.75 3 5.765 3 8.25c0 7.22 9 12 9 12s9-4.78 9-12z" />
               </svg>
-              Favorites
+              {t.outfits.favorites}
             </button>
           </div>
 
           {isLoading ? (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              {Array.from({ length: 3 }).map((_, i) => (
-                <div key={i} className="aspect-square bg-ink-100 animate-pulse" />
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="aspect-square animate-pulse" style={{ background: '#EAE6E1', borderRadius: 12 }} />
               ))}
             </div>
           ) : filteredOutfits.length === 0 ? (
-            <div className="flex flex-col items-center justify-center border border-ink-200 border-dashed py-16 text-center">
-              <p className="text-sm text-ink-400">
-                {outfits.length === 0 ? 'No saved outfits yet' : 'No favorites found'}
+            <div
+              className="flex flex-col items-center justify-center py-16 text-center"
+              style={{
+                border: '1px dashed rgba(0,0,0,0.1)',
+                borderRadius: 16,
+              }}
+            >
+              <p style={{ color: '#706A64', fontSize: '0.875rem' }}>
+                {outfits.length === 0 ? t.outfits.noSavedOutfits : t.outfits.noFavorites}
               </p>
-              <p className="text-xs text-ink-300 mt-1">Generate and save outfits above.</p>
+              <p style={{ color: '#9E9690', fontSize: '0.75rem', marginTop: 4 }}>{t.outfits.generateAndSave}</p>
             </div>
           ) : (
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
               {filteredOutfits.map(outfit => (
                 <SavedOutfitCard
                   key={outfit.id}
                   outfit={outfit}
                   onToggleFavorite={o => toggleFavorite.mutate({ id: o.id, current: o.is_favorite })}
                   onDelete={setDeleteConfirm}
+                  onShare={() => handleSavedOutfitShare(outfit)}
+                  isSharing={savingSavedShareId === outfit.id}
+                  isShared={savedSharedIds.has(outfit.id)}
                 />
               ))}
             </div>
@@ -305,26 +463,127 @@ export default function OutfitsPage() {
         </div>
       </div>
 
+      {/* Share to Keşfet modal */}
+      {shareModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+          <div className="w-full max-w-sm" style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.07)', borderRadius: 16, overflow: 'hidden' }}>
+            {/* Preview - uniform grid, fully visible items */}
+            <div style={{ aspectRatio: '1', overflow: 'hidden', background: '#F8F5F2' }}>
+              {(() => {
+                const imgs = (shareModal.itemImages.length > 0 ? shareModal.itemImages : [shareModal.imageUrl]).slice(0, 4);
+                const imgStyle: React.CSSProperties = { width: '100%', height: '100%', objectFit: 'contain', display: 'block', background: '#F8F5F2', padding: 6, boxSizing: 'border-box' };
+                if (imgs.length === 1) {
+                  // eslint-disable-next-line @next/next/no-img-element
+                  return <img src={imgs[0]} alt="Kombin" style={{ ...imgStyle, padding: 16 }} />;
+                }
+                const gridStyle: React.CSSProperties = { display: 'grid', gridTemplateColumns: '1fr 1fr', gridTemplateRows: imgs.length > 2 ? '1fr 1fr' : '1fr', width: '100%', height: '100%', gap: 2, background: '#E8E2DB' };
+                if (imgs.length === 3) {
+                  return (
+                    <div style={gridStyle}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={imgs[0]} alt="" style={imgStyle} />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={imgs[1]} alt="" style={imgStyle} />
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={imgs[2]} alt="" style={{ ...imgStyle, gridColumn: '1 / 3' }} />
+                    </div>
+                  );
+                }
+                return (
+                  <div style={gridStyle}>
+                    {imgs.map((url, i) => (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img key={i} src={url} alt="" style={imgStyle} />
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="p-5">
+              <p style={sectionLabelStyle} className="mb-1">KESFEDİLECEK</p>
+              <h3 style={{ color: '#141210', fontWeight: 700, fontSize: '1rem', marginBottom: 12 }}>Kombini topluluğa paylaş</h3>
+              <textarea
+                placeholder="Bir şeyler yaz... (isteğe bağlı)"
+                value={shareCaption}
+                onChange={e => setShareCaption(e.target.value)}
+                rows={3}
+                style={{
+                  width: '100%',
+                  background: '#F5F2EE',
+                  border: '1px solid #E2DDD7',
+                  borderRadius: 10,
+                  padding: '10px 12px',
+                  color: '#141210',
+                  fontSize: '0.875rem',
+                  outline: 'none',
+                  resize: 'none',
+                  marginBottom: 14,
+                }}
+              />
+              {shareError && (
+                <p style={{ color: '#C41E3A', fontSize: '0.8rem', marginBottom: 10 }}>{shareError}</p>
+              )}
+              <div className="flex gap-3">
+                <button
+                  onClick={() => { setShareModal(null); setShareError(null); }}
+                  style={{ flex: 1, background: '#F5F2EE', border: '1px solid #E2DDD7', borderRadius: 10, color: '#141210', fontWeight: 500, fontSize: '0.875rem', padding: '10px 16px', cursor: 'pointer' }}
+                >
+                  İptal
+                </button>
+                <button
+                  onClick={handleShareConfirm}
+                  disabled={shareOutfit.isPending}
+                  style={{ flex: 1, background: 'linear-gradient(135deg, #3b0764 0%, #7c3aed 100%)', borderRadius: 10, border: 'none', color: 'white', fontWeight: 600, fontSize: '0.875rem', padding: '10px 16px', cursor: shareOutfit.isPending ? 'not-allowed' : 'pointer', opacity: shareOutfit.isPending ? 0.6 : 1 }}
+                >
+                  {shareOutfit.isPending ? 'Paylaşılıyor...' : 'Keşfete Paylaş'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Delete confirm modal */}
       {deleteConfirm && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-ink-900/50 backdrop-blur-sm p-4">
-          <div className="w-full max-w-sm bg-white p-8 shadow-2xl">
-            <p className="section-label mb-3">Confirm Delete</p>
-            <h3 className="editorial-heading text-xl text-ink-900 mb-2">Remove Outfit</h3>
-            <p className="text-sm text-ink-500 mb-6">This outfit will be permanently deleted.</p>
+        <div className="fixed inset-0 z-50 flex items-center justify-center backdrop-blur-sm p-4" style={{ background: 'rgba(0,0,0,0.7)' }}>
+          <div className="w-full max-w-sm p-8" style={{ background: '#FFFFFF', border: '1px solid rgba(0,0,0,0.07)', borderRadius: 16 }}>
+            <p style={sectionLabelStyle} className="mb-3">{t.outfits.confirmDelete}</p>
+            <h3 style={{ color: '#141210', fontFamily: 'serif', fontWeight: 700, fontSize: '1.25rem', marginBottom: 8 }}>{t.outfits.removeOutfit}</h3>
+            <p style={{ color: '#706A64', fontSize: '0.875rem', marginBottom: 24 }}>{t.outfits.deleteOutfitConfirm}</p>
             <div className="flex gap-3">
               <button
                 onClick={() => setDeleteConfirm(null)}
-                className="btn-outline flex-1"
+                style={{
+                  flex: 1,
+                  background: '#F5F2EE',
+                  border: '1px solid #E2DDD7',
+                  borderRadius: 12,
+                  color: '#141210',
+                  fontWeight: 500,
+                  fontSize: '0.875rem',
+                  padding: '10px 16px',
+                  cursor: 'pointer',
+                }}
               >
-                Cancel
+                {t.outfits.cancel}
               </button>
               <button
                 onClick={() => handleDelete(deleteConfirm)}
                 disabled={deleteOutfit.isPending}
-                className="btn-brand flex-1 disabled:opacity-50"
+                style={{
+                  flex: 1,
+                  background: 'linear-gradient(135deg, #7a0020 0%, #C41E3A 60%, #e8294a 100%)',
+                  borderRadius: 12,
+                  border: 'none',
+                  color: 'white',
+                  fontWeight: 600,
+                  fontSize: '0.875rem',
+                  padding: '10px 16px',
+                  cursor: deleteOutfit.isPending ? 'not-allowed' : 'pointer',
+                  opacity: deleteOutfit.isPending ? 0.6 : 1,
+                }}
               >
-                {deleteOutfit.isPending ? 'Deleting...' : 'Delete'}
+                {deleteOutfit.isPending ? t.outfits.deleting : t.outfits.delete}
               </button>
             </div>
           </div>

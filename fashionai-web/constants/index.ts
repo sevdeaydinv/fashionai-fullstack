@@ -2,7 +2,7 @@ export const CLOTHING_CATEGORIES = [
   'shirt', 'tshirt', 'blouse', 'sweater',
   'pants', 'jeans', 'skirt', 'shorts',
   'jacket', 'coat', 'dress',
-  'shoes', 'sneakers', 'boots', 'heels',
+  'shoes', 'sneakers', 'boots', 'heels', 'sandals', 'slippers',
   'bag', 'backpack', 'clutch',
   'accessory',
 ] as const;
